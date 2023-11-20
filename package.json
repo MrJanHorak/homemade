@@ -1,0 +1,36 @@
+{
+  "name": "homemade",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A social media, sharing site for makers and creators",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrJanHorak/homemade.git"
+  },
+  "keywords": [
+    "social",
+    "sharing",
+    "makers",
+    "creators"
+  ],
+  "author": "Jan Horak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MrJanHorak/homemade/issues"
+  },
+  "homepage": "https://github.com/MrJanHorak/homemade#readme",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "http-errors": "^2.0.0",
+    "method-override": "^3.0.0",
+    "mongoose": "^8.0.1",
+    "morgan": "^1.10.0"
+  }
+}
