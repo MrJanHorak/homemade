@@ -4,7 +4,6 @@ import { isLoggedIn } from "../middleware/middleware.js";
 
 const router = Router();
 
-// localhost:3000/recipes/
 router.get("/", projectCtrl.index);
 router.get("/new", isLoggedIn, projectCtrl.new);
 router.get("/:id", projectCtrl.show);
