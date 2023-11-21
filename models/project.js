@@ -101,5 +101,5 @@ const projectSchema = new Schema(
   }
 );
 
-const Recipe = mongoose.model('Project', projectSchema);
+const Project = mongoose.model('Project', projectSchema);
 export { Project };

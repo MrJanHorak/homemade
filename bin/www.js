@@ -7,27 +7,6 @@ import debug from 'debug';
 import http from 'http';
 
 /**
- * Get port from environment and store in Express.
- */
-
-const port = normalizePort(process.env.PORT || '3000');
-app.set('port', port);
-
-/**
- * Create HTTP server.
- */
-
-const server = http.createServer(app);
-
-/**
- * Listen on provided port, on all network interfaces.
- */
-
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
-
-/**
  * Normalize a port into a number, string, or false.
  */
 
@@ -46,6 +25,19 @@ const normalizePort = (val) => {
 
   return false;
 };
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+const port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+const server = http.createServer(app);
 
 /**
  * Event listener for HTTP server "error" event.
@@ -83,3 +75,11 @@ const onListening = () => {
   debug(`Listening on ${bind}`);
   console.log(`Listening on ${bind}`);
 };
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
