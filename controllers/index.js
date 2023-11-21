@@ -1,6 +1,6 @@
 import { Project } from '../models/project.js';
 
-function index(req, res) {
+const index = (req, res) => {
   Project.find({})
     .sort({ createdAt: 'descending' })
     .then((projects) => {
@@ -13,6 +13,6 @@ function index(req, res) {
       console.log(err);
       res.redirect('/');
     });
-}
+};
 
 export { index };

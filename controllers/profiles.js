@@ -1,7 +1,7 @@
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
 
-function index(req, res) {
+const index = (req, res) => {
   Profile.find({})
     .then((profiles) => {
       Project.find({}).then((projects) => {
@@ -16,9 +16,9 @@ function index(req, res) {
       console.log(err);
       res.redirect('/profiles');
     });
-}
+};
 
-function show(req, res) {
+const show = (req, res) => {
   Profile.findById(req.params.id)
     .then((profile) => {
       Project.find({ owner: req.params.id })
@@ -42,6 +42,6 @@ function show(req, res) {
       console.log(err);
       res.redirect('/');
     });
-}
+};
 
 export { index, show };
