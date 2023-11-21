@@ -1,0 +1,41 @@
+<!-- <link rel="stylesheet" href="/stylesheets/nav.css"> -->
+<link href="https://fonts.googleapis.com/css?family=Arvo&display=swap" rel="stylesheet">
+<!-- </head> -->
+
+  <div id="maintitle">
+    <img id="logo" src="" alt="homemade logo">
+    <h1 id="websiteTitle">Homemade.</h1>
+  </div>
+
+  <nav>
+    <ul>
+      <% if (user) { %>
+        <li><a href="/">Home</a></li>
+        <li><a href="/projects">projects</a>
+          <ul class="dropdown">
+            <li><a href="/projects/">View All</a></li>
+            <li><a href="/projects/new">Add One</a></li>
+          </ul>
+        </li>
+        <li><a href="/profiles/">Creatives</a>
+          <ul class="dropdown">
+            <li><a href="/profiles/">All Profiles</a></li>
+            <li><a href="/profiles/<%=user.profile.id%>">Your Profile<img id="profilePic" src="<%= user.profile.avatar %>" 
+        alt="<%= user.profile.name %> avatar"></a></li>
+            <li><a href="/auth/logout">Logout</a></li>
+          </ul>  
+        </li>
+    </ul>
+  </nav>
+<!-- </div> -->
+
+      <% } else { %>
+        <a href="/auth/google" class="siwg-link">
+          <button type="submit" class="siwg">
+            <img id="siwg-image" alt="Sign in with Google" />
+          </button>
+        </a>
+      <% } %>
+  </nav>
+</div>
+<body>
