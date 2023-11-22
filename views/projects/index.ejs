@@ -1,0 +1,33 @@
+<%- include('../partials/html-head') %>
+<%- include('../partials/nav') %>
+<link rel="stylesheet" href="/stylesheets/projects/index.css">
+
+<main>
+  <div id="topSpaceBuffer"></div>
+  <% if (user?.profile._id) { %>
+  <div id="projectsIndexView">
+    <% projects.forEach(project =>{ %>
+        <a href="/projects/<%= project._id %>">
+          <div id="projectIndexCard">
+            <h2><%=project.title%></h2>
+            <% if (project.buildPictures.length > 0) {%>
+              <img id="projectPic" src="<%=project.buildPictures[0]%>" alt="picture of completed project">
+            <% } %>
+            <p>
+              <b>Difficulty:</b> <%=project.difficulty%><br/>
+              <b>Build Time:</b> <%=project.buildTime%>  
+              <b>Categories:</b> <%=project.categories%><br/>
+              <b>Likes:</b> <%=likes%><br/>
+              <b>Rating:</b> <%=rating%><br/>
+              <div id="buildDescription">
+                <b>Description:</b> <%=project.description%>
+              </div>
+            </p>
+            <img id=""onwerAvatar" src="<%=project.owner.avatar%>" alt="picture of project owner">
+          </div>
+    <%})%>
+  </div>
+  <% } %>
+  <%- include('../partials/footer') %>
+</main>
+

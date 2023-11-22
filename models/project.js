@@ -16,15 +16,15 @@ const projectComment = new Schema(
 
 const projectSchema = new Schema(
   {
-    projectTitle: {
+    title: {
       type: String,
       required: true,
     },
-    projectDescription: {
+    description: {
       type: String,
       required: true,
     },
-    projectCategory: {
+    categories: {
       category: {
         type: String,
         enum: [
@@ -92,7 +92,7 @@ const projectSchema = new Schema(
     ownerName: String,
     ownerAvatar: String,
     dateBuilt: Date,
-    liked: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
+    likes: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
     rating: [Number],
     visible: { type: Boolean, default: true },
   },
