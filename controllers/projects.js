@@ -94,7 +94,7 @@ const show = (req, res) => {
           ownerName,
           ownerAvatar,
           averageRating,
-          Project,
+          project,
           self,
           isSelf,
           avatar,

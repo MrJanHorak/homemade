@@ -1,0 +1,129 @@
+<script defer src="/js/projects/rating.js"></script>
+<%- include('../partials/html-head') %>
+<link rel="stylesheet" href="/stylesheets/projects/show.css" />
+<link
+  rel="stylesheet"
+  href="https://use.fontawesome.com/releases/v5.15.4/css/all.css"
+  integrity="sha384-DyZ88mC6Up2uqS4h/KRgHuoeGwBcD4Ng9SiP4dIRy0EXTlnuz47vAwmeGwVChigm"
+  crossorigin="anonymous"
+/>
+<%- include('../partials/nav') %>
+
+<main>
+  <div id="topSpaceBuffer"></div>
+  <h1><%= title %></h1>
+  <% if (user?.profile._id) { %>
+  <div id="projectDetailView">
+    <h2><%=project.name%></h2>
+    <% if (project.buildPictures.length >0) {%>
+    <img
+      id="projectBuildPic"
+      src="<%=project.buildPictures[0]%>"
+      alt="Picture of finished project"
+    />
+    <% } %>
+
+    <div id="buildInfo">
+      <p>
+        <b>Prep Time:</b> <%=project.PrepTime%><br />
+        <b>Cook Time:</b> <%=project.cookTime%><br />
+        <b>Temperature:</b> <%=project.temp%> Fahrenheit<br />
+        <b>Portions:</b> <%=project.yield%><br />
+      </p>
+    </div>
+
+    <% if (project.ingredients.length) { %>
+    <br />
+    <div id="materialList">
+      <b>Materials:</b>
+      <br />
+      <% project.materialsNeeded.forEach(material => { %> <%=material %><br />
+      <%});%>
+    </div>
+    <% } %>
+
+    <br />
+
+    <div id="buildInstructions">
+      <b>Instructions:</b> <%=project.instructions%><br /><br />
+    </div>
+
+    <b>Created by:</b> <%=project.ownerName %>
+    <img id="commentProfilePic" src="<%=project.ownerAvatar%>" />
+
+    <div id="projectButtons">
+      <form>
+        <input
+          class="btn"
+          type="button"
+          value="Go back"
+          onclick="history.back()"
+        />
+      </form>
+
+      <% if (project.owner.equals(user?.profile._id)) { %>
+      <a href="/projects/<%= project._id %>/edit">
+        <input class="btn" value="Edit Recipe" type="submit" />
+      </a>
+      <form action="/projects/<%= project._id %>?_method=DELETE" method="POST">
+        <button class="btn" type="submit">Delete</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+  <div id="ratingBox">
+    <% if (project.rating.length === 0) { %>
+    <p>Be the First to rate!</p>
+    <%} else { %> Average Rating<br />
+    <div class="Stars" style="--rating: <%=averageRating%>"></div>
+    <p>Out of <%=project.rating.length%> ratings.</p>
+    <% } %>
+  </div>
+  <% project.comments.forEach(comment => { %>
+  <div id="projectComment">
+    <%=comment.content %><br />
+    <div id="commentatorInfo">
+      <img id="commentProfilePic" src="<%=comment.avatar%>" />
+      <span id="commentator"
+        ><b><%=comment.name %></b> commented on
+        <%=comment.createdAt.toString().substring(0,15) %> at
+        <%=comment.createdAt.toString().substring(16, 21) %> <% if
+        (comment.owner.equals(user?.profile._id)) { %>
+      </span>
+      <form
+        action="/projects/<%= project._id %>/comments/<%=comment.id%>?_method=DELETE"
+        method="POST"
+      >
+        <br />
+        <button class="btn" type="submit">remove comment</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+  <% }) %>
+  <div id="addProjectComment">
+    <form action="/projects/<%=project._id%>/comments" method="post">
+      <br />Rate and Leave a comment<br />
+      <div class="rating">
+        <span class="rating__result"></span>
+        <select type="text" name="rating">
+          <option value="" selected></option>
+          <option value="1">⭐️</option>
+          <option value="2">⭐️⭐️</option>
+          <option value="3">⭐️⭐️⭐️</option>
+          <option value="4">⭐️⭐️⭐️⭐️</option>
+          <option value="5">⭐️⭐️⭐️⭐️⭐️</option></select
+        ><br /><br />
+      </div>
+      <textarea id="commentText" name="content"  rows="5"></textarea>
+      <br />
+      <br />
+      <input hidden name="name" value="<%=name%>" />
+      <input hidden name="avatar" value="<%=avatar%>" />
+      <button class="btn" type="submit">Add Comment</button>
+    </form>
+  </div>
+  <% } %>
+  <%- include('../partials/footer') %>
+</main>
+
