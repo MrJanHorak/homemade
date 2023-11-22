@@ -17,13 +17,13 @@
               <b>Difficulty:</b> <%=project.difficulty%><br/>
               <b>Build Time:</b> <%=project.buildTime%>  
               <b>Categories:</b> <%=project.categories%><br/>
-              <b>Likes:</b> <%=likes%><br/>
-              <b>Rating:</b> <%=rating%><br/>
+              <b>Likes:</b> <%=project.likes%><br/>
+              <b>Rating:</b> <%=project.averageRating%><br/>
               <div id="buildDescription">
                 <b>Description:</b> <%=project.description%>
               </div>
             </p>
-            <img id=""onwerAvatar" src="<%=project.owner.avatar%>" alt="picture of project owner">
+            <img id=""onwerAvatar" src="<%=project.ownerAvatar%>" alt="picture of project owner">
           </div>
     <%})%>
   </div>

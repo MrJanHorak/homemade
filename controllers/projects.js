@@ -5,9 +5,27 @@ const index = (req, res) => {
   Project.find({})
     .sort({ name: 'asc' })
     .then((projects) => {
+
+      // filter out projects that are not visible
+      const onlyVisible = projects.filter((project) => {
+        return project.visible;
+      });
+      // calculate the number of likes for each project and add it to the project object
+      onlyVisible.forEach((project) => {
+        project.likes = project.likes.length;
+      });
+      // calculate the average rating for each project and add it to the project object
+      onlyVisible.forEach((project) => {
+        let total = 0;
+        project.rating.forEach((rate) => {
+          total += rate;
+        });
+        let averageRating = total / project.rating.length;
+        project.averageRating = averageRating;
+      });
       res.render('projects/index', {
         title: 'projects',
-        projects,
+        projects: onlyVisible,
       });
     })
     .catch((err) => {
@@ -17,6 +35,9 @@ const index = (req, res) => {
 };
 
 const newProject = (req, res) => {
+  console.log(req.user.profile._id);
+  console.log(req.user.profile.name)
+  console.log('creting new project')
   Profile.findById(req.user.profile._id)
     .then((self) => {
       const role = self.role;
@@ -24,8 +45,9 @@ const newProject = (req, res) => {
       const isSelf = self._id.equals(req.user.profile._id);
       const ownerName = self.name;
       const ownerAvatar = self.avatar;
+      console.log(self);
       res.render('projects/new', {
-        title: 'New Projects',
+        title: 'New Project',
         self,
         isSelf,
         role,
@@ -43,7 +65,7 @@ const newProject = (req, res) => {
 const create = (req, res) => {
   req.body.visible = !!req.body.visible;
   Project.create(req.body)
-    .then((project) => {
+    .then(() => {
       res.redirect('/projects');
     })
     .catch((err) => {
