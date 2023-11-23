@@ -1,7 +1,10 @@
 import { Project } from '../models/project.js';
 import { Profile } from '../models/profile.js';
 
+import categories from '../data/categories.js';
+
 const index = (req, res) => {
+  console.log('index');
   Project.find({})
     .sort({ name: 'asc' })
     .then((projects) => {
@@ -22,6 +25,9 @@ const index = (req, res) => {
         let averageRating = total / project.rating.length;
         project.averageRating = averageRating;
       });
+      console.log('onlyVisible: ', onlyVisible);
+      console.log('projects: ', projects);
+      console.log(projects)
       res.render('projects/index', {
         title: 'projects',
         projects: onlyVisible,
@@ -50,6 +56,7 @@ const newProject = (req, res) => {
         owner,
         ownerName,
         ownerAvatar,
+        categories
       });
     })
     .catch((err) => {
@@ -143,6 +150,7 @@ const edit = (req, res) => {
           role,
           title: 'Edit Project',
           project,
+          categories
         });
       });
     })
@@ -153,6 +161,9 @@ const edit = (req, res) => {
 };
 
 const update = (req, res) => {
+  console.log('updating project');
+  console.log('req.body: ', req.body);
+  
   Project.findById(req.params.id)
     .then((project) => {
       if (project.owner.equals(req.user.profile._id)) {

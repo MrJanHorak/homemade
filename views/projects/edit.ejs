@@ -1,4 +1,5 @@
 <script defer src="/js/projects/addInputs.js"></script>
+
 <%- include('../partials/html-head') %>
 <link rel="stylesheet" href="/stylesheets/projects/new.css" />
 <%- include('../partials/nav') %>
@@ -11,7 +12,7 @@
     <% if (user?.profile._id) { %>
 
     <div id="creatProject">
-      <form action="/projects/<%= project._id%>?_method=PUT" method="PUT">
+      <form action="/projects/<%= project._id%>?_method=PUT" method="POST">
         <label for="projectTitle">
           <b>Project Title:</b>
         </label>
@@ -31,7 +32,7 @@
         <label for="projectDescription">
           <b>Project Description:</b>
         </label>
-        <textArea
+        <textarea
           class="formInput"
           id="projectDescription"
           type="text"
@@ -39,9 +40,9 @@
           placeholder="Project Description"
           required
           size="50"
-          value="<%=project.description%>"
         >
-        </textArea>
+          <%=project.description%>
+        </textarea>
         <br />
         <br />
 
@@ -49,7 +50,13 @@
           <div>
             <label for="buildTime">
               <b>Build Time:</b>
-              <input type="number" name="buildTime" id="buildTime" min="0" value="project.buildTime"/>
+              <input
+                type="number"
+                name="buildTime"
+                id="buildTime"
+                min="0"
+                value="<%=project.buildTime%>"
+              />
               Hours
             </label>
           </div>
@@ -76,62 +83,13 @@
             <label for="categories">
               <b>Categories:</b>
             </label>
+
             <select name="categories" id="categories" multiple required>
-              <option value="3DPrinting">3D Printing</option>
-              <option value="Art">Art</option>
-              <option value="Automotive">Automotive</option>
-              <option value="Beekeeping">Beekeeping</option>
-              <option value="CandleMaking">Candle Making</option>
-              <option value="Coding">Coding</option>
-              <option value="Cosplay">Cosplay</option>
-              <option value="Crafts">Crafts</option>
-              <option value="Crochet">Crochet</option>
-              <option value="DIYBeautyAndSkincare">
-                DIY Beauty And Skincare
-              </option>
-              <option value="DIYEducationalToys">DIY Educational Toys</option>
-              <option value="DIYElectronicsKits">DIY Electronics Kits</option>
-              <option value="DIYFurniture">DIY Furniture</option>
-              <option value="DIYGiftsAndHandmadeCards">
-                DIY Gifts And Handmade Cards
-              </option>
-              <option value="DIYHomeDecor">DIY Home Decor</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Fashion">Fashion</option>
-              <option value="Food">Food</option>
-              <option value="GameDevelopment">Game Development</option>
-              <option value="Gardening">Gardening</option>
-              <option value="GraphicDesign">Graphic Design</option>
-              <option value="HomeImprovement">Home Improvement</option>
-              <option value="Jewelry">Jewelry</option>
-              <option value="Knitting">Knitting</option>
-              <option value="Leatherworking">Leatherworking</option>
-              <option value="Metalworking">Metalworking</option>
-              <option value="ModelBuilding">ModelBuilding</option>
-              <option value="Music">Music</option>
-              <option value="Other">Other</option>
-              <option value="OutdoorAndSurvivalSkills">
-                Outdoor And Survival Skills
-              </option>
-              <option value="Papercrafts">Papercrafts</option>
-              <option value="Photography">Photography</option>
-              <option value="Pottery">Pottery</option>
-              <option value="Printmaking">Printmaking</option>
-              <option value="Quilting">Quilting</option>
-              <option value="Recycling">Recycling</option>
-              <option value="Repurposing">Repurposing</option>
-              <option value="Robotics">Robotics</option>
-              <option value="Sculpture">Sculpture</option>
-              <option value="Sewing">Sewing</option>
-              <option value="Upcycling">Upcycling</option>
-              <option value="VirtualRealityCreations">
-                Virtual Reality Creations
-              </option>
-              <option value="Weaving">Weaving</option>
-              <option value="Woodcarving">Woodcarving</option>
-              <option value="Woodturning">Woodturning</option>
-              <option value="Woodworking">Woodworking</option>
+              <% categories.forEach(category => { %>
+                <option value="<%= category.value %>" <%= project.categories.includes(category.value) ? 'selected' : '' %>><%= category.label %></option>
+              <% }); %>
             </select>
+
             <p>
               <b
                 >Hold down the Ctrl (windows) / Command (Mac) button to select
@@ -189,19 +147,17 @@
                 >Add additional tool</a
               >
             </button>
-
           </label>
 
-            <br />
-            <div id="add-tool-container"></div>
-            <br />
-            <button class="btn">
-              <a href="#" id="addToolLink" onclick="addTools()"
-                >Add additional tool</a
-              >
-            </button>
-            <br />
-          </label>
+          <br />
+          <div id="add-tool-container"></div>
+          <br />
+          <button class="btn">
+            <a href="#" id="addToolLink" onclick="addTools()"
+              >Add additional tool</a
+            >
+          </button>
+          <br />
         </div>
         <br />
         <label>
@@ -217,8 +173,9 @@
               required
               spellcheck="true"
               wrap="soft"
-              value="<%=instruction%>"
-            ></textarea>
+            >
+              <%=instruction%>
+            </textarea>
             <br />
             <% }) %>
             <br />
@@ -270,7 +227,8 @@
         <input hidden name="owner" value="<%=owner%>" />
         <input hidden name="ownerName" value="<%=ownerName%>" />
         <input hidden name="ownerAvatar" value="<%=ownerAvatar%>" />
-        <button class="btn" type="submit">Add Project</button>
+        <input hidden name="visible" value="true" />
+        <button class="btn" type="submit">Update Project</button>
       </form>
     </div>
     <% } else{ %>
