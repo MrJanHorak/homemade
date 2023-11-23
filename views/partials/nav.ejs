@@ -30,11 +30,20 @@
 <!-- </div> -->
 
       <% } else { %>
+        <li><a href="/">Home</a></li>
+        <li><a href="/projects">projects</a>
+          <ul class="dropdown">
+            <li><a href="/projects/">View All</a></li>
+            <li><a href="/projects/new">Add One</a></li>
+          </ul>
+        </li>
+        <li>
         <a href="/auth/google" class="siwg-link">
           <button type="submit" class="siwg">
             <img id="siwg-image" alt="Sign in with Google" />
           </button>
         </a>
+      </li>
       <% } %>
   </nav>
 </div>

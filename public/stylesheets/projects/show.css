@@ -1,0 +1,242 @@
+:root {
+  --star-size: 30px;
+  --star-color: #fff;
+  --star-background: #fc0;
+}
+
+a {
+  text-decoration: none;
+  color: black;
+}
+
+img {
+  width: 160px;
+}
+
+#commentText {
+  font-size: 1.5em;
+  resize: none;
+  border-radius: 5px;
+  width: 88%;
+}
+
+form {
+  text-align: center;
+}
+
+#topSpaceBuffer {
+  height: 45px;
+}
+
+#projectComment {
+  width: 550px;
+  height: auto;
+  margin: 7px;
+  border-radius: 4px;
+  padding: 13px;
+  padding-left: 25px;
+  padding-right: 25px;
+  background-color: rgba(121, 102, 74, 0.8);
+  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+  color: white;
+  font-size: 1.5em;
+}
+
+#addProjectComment {
+  width: 550px;
+  height: auto;
+  margin: 7px;
+  border-radius: 4px;
+  padding: 5px;
+  background-color: rgba(97, 92, 85, 0.9);
+  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+  color: white;
+  font-size: 1.5em;
+  resize: none;
+  text-align: center;
+}
+
+#ratingBox {
+  width: 550px;
+  height: auto;
+  margin: 5px;
+  border: 1px solid black;
+  border-radius: 4px;
+  padding: 5px;
+  background-color: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+  color: white;
+  font-size: 1.5em;
+  text-align: center;
+}
+
+#projectsDetailView {
+  width: 550px;
+  height: auto;
+  margin: 7px;
+  border: 1px solid rgb(201, 201, 201);
+  border-radius: 4px;
+  padding: 15px;
+  overflow: hidden;
+  background-color: rgba(253, 253, 253, 0.8);
+  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+  font-size: 1.5em;
+}
+
+#commentProfilePic {
+  width: 25px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  vertical-align: middle;
+}
+
+#projectButtons {
+  display: flex;
+}
+
+#commentator {
+  font-size: 0.8em;
+}
+
+#commentatorInfo {
+  margin-top: 13px;
+  text-align: center;
+}
+
+.rating {
+  width: 180px;
+  padding-top: 13px;
+  margin: auto;
+}
+
+#projectComment > img {
+  width: 25px;
+}
+
+#buildPic {
+  float: right;
+  width: 98%;
+  padding: 4px;
+  border-radius: 4px;
+  border: 2px solid wheat;
+  margin-bottom: 15px;
+}
+
+#buildInstructions {
+  white-space: pre-line;
+}
+
+.rating__result {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-10px) translateX(-5px);
+  z-index: -9;
+  font: 3em Arial, Helvetica, sans-serif;
+  color: #ebebeb8e;
+  pointer-events: none;
+}
+
+.rating__star {
+  font-size: 1.3em;
+  cursor: pointer;
+  color: #dabd18b2;
+  transition: filter linear 0.3s;
+}
+
+.rating__star:hover {
+  filter: drop-shadow(1px 1px 4px gold);
+}
+
+.Stars {
+  --percent: calc(var(--rating) / 5 * 100%);
+  display: inline-block;
+  font-size: var(--star-size);
+  font-family: Times;
+  line-height: 1;
+}
+
+.Stars::before {
+  content: '★★★★★';
+  letter-spacing: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--star-background) var(--percent),
+    var(--star-color) var(--percent)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@media only screen and (max-width: 560px) {
+  #prepInfo {
+    margin-left: 44px;
+  }
+
+  #ratingBox {
+    width: 88%;
+    height: auto;
+    margin-bottom: 15px;
+    margin: 3px;
+    border-radius: 4px;
+    padding: 7px;
+    background-color: rgb(0, 0, 0);
+    color: white;
+    font-size: 1.5rem;
+    text-align: center;
+  }
+
+  #rprojectDetailView {
+    width: 88%;
+    height: auto;
+    margin: 5px;
+    border: 1px solid rgb(201, 201, 201);
+    border-radius: 4px;
+    padding: 15px;
+    overflow: hidden;
+    background-color: rgba(253, 253, 253, 0.8);
+    box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+    font-size: 1.5em;
+  }
+
+  #profilePic {
+    width: 25px;
+    border-radius: 50%;
+    border: 1px solid #ddd;
+    vertical-align: middle;
+  }
+
+  #projectComment {
+    width: 88%;
+    height: auto;
+  }
+
+  #projectBuildPic {
+    width: 90%;
+  }
+
+  #buildInstructions {
+    white-space: pre-line;
+    width: 88%;
+  }
+
+  #addProjectComment {
+    width: 88%;
+  }
+
+  #commentText {
+    height: 200px;
+  }
+}
+
+@media only screen and (max-width: 476px) {
+  ul li {
+    padding: 0 5px;
+  }
+
+  #projectDetailView {
+    height: auto;
+    margin: 5px;
+    font-size: 1.5em;
+  }
+}

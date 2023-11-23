@@ -7,16 +7,16 @@
 <main>
   <div id="topSpaceBuffer"></div>
   <h1><%= title %></h1>
-  <% if (user?.profile._id) { %>
   <div id="projectDetailView">
-    <h2><%=project.name%></h2>
+    <h2><%=project.title%></h2>
     <% if (project.buildPictures.length >0) {%>
-    <img
-      id="projectBuildPic"
-      src="<%=project.buildPictures[0]%>"
-      alt="Picture of finished project"
-    />
+    <div id="projectImage">
+      <img src="<%=project.buildPictures[0]%>" />
+    </div>
     <% } %>
+
+    <div id="projectDescription">
+      <p><%=project.description%></p>
 
     <div id="buildInfo">
       <p>
@@ -49,11 +49,11 @@
 
     <br />
 
-    <% if(project.builtInstructions.length > 0) { %>
+    <% if(project.buildInstructions.length > 0) { %>
     <div id="buildInstructions">
       <b>Instructions:</b> 
       <ol>
-        <% project.builtInstructions.forEach(instruction => { %>
+        <% project.buildInstructions.forEach(instruction => { %>
         <li><%=instruction %></li>
         <br /><br />
         <%});%>
@@ -135,5 +135,5 @@
       <button class="btn" type="submit">Add Comment</button>
     </form>
   </div>
-  <% } %> <%- include('../partials/footer') %>
+<%- include('../partials/footer') %>
 </main>

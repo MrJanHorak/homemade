@@ -34,7 +34,6 @@ const index = (req, res) => {
 };
 
 const newProject = (req, res) => {
-
   Profile.findById(req.user.profile._id)
     .then((self) => {
       const role = self.role;
@@ -106,6 +105,8 @@ const show = (req, res) => {
           });
         });
       } else {
+        console.log('not logged in')
+        console.log('project: ', project)
         res.render('projects/show', {
           ownerName,
           ownerAvatar,
