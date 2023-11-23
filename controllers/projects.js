@@ -105,8 +105,8 @@ const show = (req, res) => {
           });
         });
       } else {
-        console.log('not logged in')
-        console.log('project: ', project)
+        console.log('not logged in');
+        console.log('project: ', project);
         res.render('projects/show', {
           ownerName,
           ownerAvatar,
@@ -127,7 +127,7 @@ const show = (req, res) => {
 
 const edit = (req, res) => {
   Project.findById(req.params.id)
-    .then((Project) => {
+    .then((project) => {
       Profile.findById(req.user.profile._id).then((self) => {
         const role = self.role;
         const owner = self._id;
@@ -142,7 +142,7 @@ const edit = (req, res) => {
           ownerAvatar,
           role,
           title: 'Edit Project',
-          Project,
+          project,
         });
       });
     })

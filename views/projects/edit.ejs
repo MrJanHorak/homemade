@@ -1,0 +1,281 @@
+<script defer src="/js/projects/addInputs.js"></script>
+<%- include('../partials/html-head') %>
+<link rel="stylesheet" href="/stylesheets/projects/new.css" />
+<%- include('../partials/nav') %>
+
+<main>
+  <div id="topSpaceBuffer"></div>
+
+  <div id="newProject">
+    <h1><%= title %></h1>
+    <% if (user?.profile._id) { %>
+
+    <div id="creatProject">
+      <form action="/projects/<%= project._id%>?_method=PUT" method="PUT">
+        <label for="projectTitle">
+          <b>Project Title:</b>
+        </label>
+        <input
+          class="formInput"
+          id="projectTitle"
+          type="text"
+          name="title"
+          placeholder="Project Title"
+          required
+          size="50"
+          value="<%=project.title%>"
+        />
+
+        <br />
+        <br />
+        <label for="projectDescription">
+          <b>Project Description:</b>
+        </label>
+        <textArea
+          class="formInput"
+          id="projectDescription"
+          type="text"
+          name="description"
+          placeholder="Project Description"
+          required
+          size="50"
+          value="<%=project.description%>"
+        >
+        </textArea>
+        <br />
+        <br />
+
+        <div class="partialFormContainer">
+          <div>
+            <label for="buildTime">
+              <b>Build Time:</b>
+              <input type="number" name="buildTime" id="buildTime" min="0" value="project.buildTime"/>
+              Hours
+            </label>
+          </div>
+
+          <div>
+            <label for="difficulty">
+              <b>Difficulty:</b>
+              <input
+                type="number"
+                name="difficulty"
+                id="difficulty"
+                min="0"
+                required
+                value="<%=project.difficulty%>"
+              />
+              On a scale of [Beginner] 1 to 10 [Pro]
+            </label>
+          </div>
+        </div>
+        <br />
+
+        <div class="partialFormContainer">
+          <div>
+            <label for="categories">
+              <b>Categories:</b>
+            </label>
+            <select name="categories" id="categories" multiple required>
+              <option value="3DPrinting">3D Printing</option>
+              <option value="Art">Art</option>
+              <option value="Automotive">Automotive</option>
+              <option value="Beekeeping">Beekeeping</option>
+              <option value="CandleMaking">Candle Making</option>
+              <option value="Coding">Coding</option>
+              <option value="Cosplay">Cosplay</option>
+              <option value="Crafts">Crafts</option>
+              <option value="Crochet">Crochet</option>
+              <option value="DIYBeautyAndSkincare">
+                DIY Beauty And Skincare
+              </option>
+              <option value="DIYEducationalToys">DIY Educational Toys</option>
+              <option value="DIYElectronicsKits">DIY Electronics Kits</option>
+              <option value="DIYFurniture">DIY Furniture</option>
+              <option value="DIYGiftsAndHandmadeCards">
+                DIY Gifts And Handmade Cards
+              </option>
+              <option value="DIYHomeDecor">DIY Home Decor</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Fashion">Fashion</option>
+              <option value="Food">Food</option>
+              <option value="GameDevelopment">Game Development</option>
+              <option value="Gardening">Gardening</option>
+              <option value="GraphicDesign">Graphic Design</option>
+              <option value="HomeImprovement">Home Improvement</option>
+              <option value="Jewelry">Jewelry</option>
+              <option value="Knitting">Knitting</option>
+              <option value="Leatherworking">Leatherworking</option>
+              <option value="Metalworking">Metalworking</option>
+              <option value="ModelBuilding">ModelBuilding</option>
+              <option value="Music">Music</option>
+              <option value="Other">Other</option>
+              <option value="OutdoorAndSurvivalSkills">
+                Outdoor And Survival Skills
+              </option>
+              <option value="Papercrafts">Papercrafts</option>
+              <option value="Photography">Photography</option>
+              <option value="Pottery">Pottery</option>
+              <option value="Printmaking">Printmaking</option>
+              <option value="Quilting">Quilting</option>
+              <option value="Recycling">Recycling</option>
+              <option value="Repurposing">Repurposing</option>
+              <option value="Robotics">Robotics</option>
+              <option value="Sculpture">Sculpture</option>
+              <option value="Sewing">Sewing</option>
+              <option value="Upcycling">Upcycling</option>
+              <option value="VirtualRealityCreations">
+                Virtual Reality Creations
+              </option>
+              <option value="Weaving">Weaving</option>
+              <option value="Woodcarving">Woodcarving</option>
+              <option value="Woodturning">Woodturning</option>
+              <option value="Woodworking">Woodworking</option>
+            </select>
+            <p>
+              <b
+                >Hold down the Ctrl (windows) / Command (Mac) button to select
+                multiple options.</b
+              >
+            </p>
+          </div>
+        </div>
+        <br />
+
+        <div id="materialsList">
+          <label for="materialsNeeded">
+            <b>Materials:</b>
+          </label>
+          <% project.materialsNeeded.forEach(material => { %>
+          <input
+            class="formInput"
+            id="materialsNeeded"
+            type="text"
+            name="materialsNeeded"
+            size="43"
+            value="<%=material%>"
+          />
+          <br />
+          <%});%>
+
+          <div id="add-materials-container"></div>
+          <br />
+          <button class="btn">
+            <a href="#" id="addMaterialLink" onclick="addMaterials()"
+              >Add more Materials</a
+            >
+          </button>
+          <br />
+        </div>
+
+        <div id="toolsList">
+          <label>
+            <b>Tools Needed/Used:</b>
+            <% project.toolsNeeded.forEach(tool => { %>
+            <input
+              class="formInput"
+              id="toolsNeeded"
+              type="text"
+              name="toolsNeeded"
+              size="43"
+              value="<%=tool%>"
+            />
+            <br />
+            <%});%>
+            <div id="add-tool-container"></div>
+            <br />
+            <button class="btn">
+              <a href="#" id="addToolLink" onclick="addTools()"
+                >Add additional tool</a
+              >
+            </button>
+
+          </label>
+
+            <br />
+            <div id="add-tool-container"></div>
+            <br />
+            <button class="btn">
+              <a href="#" id="addToolLink" onclick="addTools()"
+                >Add additional tool</a
+              >
+            </button>
+            <br />
+          </label>
+        </div>
+        <br />
+        <label>
+          <b>Build Instructions:</b>
+          <br />
+          <div id="buildInstructions">
+            <% project.buildInstructions.forEach(instruction => { %>
+            <textarea
+              placeholder="Steps 1: ..."
+              name="buildInstructions"
+              cols="53"
+              rows="17"
+              required
+              spellcheck="true"
+              wrap="soft"
+              value="<%=instruction%>"
+            ></textarea>
+            <br />
+            <% }) %>
+            <br />
+          </div>
+          <button class="btn">
+            <a href="#" id="addBuildStepLink" onclick="addSteps()"
+              >Add another step</a
+            >
+          </button>
+          <br />
+          <label>
+            <b>Picture URL:</b>
+            <% project.buildPictures.forEach(picture => { %>
+            <input
+              class="formInput"
+              type="text"
+              name="picture"
+              size="43"
+              id="pictureUrl"
+              value="<%=picture%>"
+            />
+          </label>
+          <br />
+          <% }) %>
+          <br />
+          <div id="external-link-container">
+            <label>
+              <b>Links to External resources:</b>
+              <% project.externalLinks.forEach(link => { %>
+              <input
+                class="formInput"
+                id="externalLinks"
+                type="text"
+                name="externalLinks"
+                size="43"
+                value="<%=link%>"
+              />
+              <br />
+              <% }) %>
+              <div id="add-links-container"></div>
+              <br />
+              <button class="btn">
+                <a href="#" id="addLink" onclick="addLinks()">Add more Links</a>
+              </button>
+              <br />
+            </label>
+          </div>
+        </label>
+        <input hidden name="owner" value="<%=owner%>" />
+        <input hidden name="ownerName" value="<%=ownerName%>" />
+        <input hidden name="ownerAvatar" value="<%=ownerAvatar%>" />
+        <button class="btn" type="submit">Add Project</button>
+      </form>
+    </div>
+    <% } else{ %>
+    <h1>You must be Logged in to add projects!</h1>
+    <% } %>
+  </div>
+  <%- include('../partials/footer') %>
+</main>
