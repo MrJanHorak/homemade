@@ -83,6 +83,7 @@ const projectSchema = new Schema(
     otherCategory: [String],
     buildPictures: [String],
     materialsNeeded: [String],
+    estimatedCost: Number,
     toolsNeeded: [String],
     externalLinks: [String],
     buildInstructions: {

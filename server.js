@@ -25,11 +25,11 @@ import { router as profileRouter } from './routes/profiles.js';
 const app = express();
 
 // view engine setup
+app.set('view engine', 'ejs');
 app.set(
   'views',
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'views')
 );
-app.set('view engine', 'ejs');
 
 // middleware
 app.use(methodOverride('_method'));

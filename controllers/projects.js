@@ -5,7 +5,6 @@ const index = (req, res) => {
   Project.find({})
     .sort({ name: 'asc' })
     .then((projects) => {
-
       // filter out projects that are not visible
       const onlyVisible = projects.filter((project) => {
         return project.visible;
@@ -35,9 +34,7 @@ const index = (req, res) => {
 };
 
 const newProject = (req, res) => {
-  console.log(req.user.profile._id);
-  console.log(req.user.profile.name)
-  console.log('creting new project')
+
   Profile.findById(req.user.profile._id)
     .then((self) => {
       const role = self.role;
@@ -45,7 +42,7 @@ const newProject = (req, res) => {
       const isSelf = self._id.equals(req.user.profile._id);
       const ownerName = self.name;
       const ownerAvatar = self.avatar;
-      console.log(self);
+
       res.render('projects/new', {
         title: 'New Project',
         self,
@@ -75,6 +72,8 @@ const create = (req, res) => {
 };
 
 const show = (req, res) => {
+  console.log('showing project');
+  console.log('User ID: ', req.isAuthenticated());
   Project.findById(req.params.id)
     .populate('comments')
     .exec()
@@ -82,26 +81,42 @@ const show = (req, res) => {
       const ownerName = project.ownerName;
       const ownerAvatar = project.ownerAvatar;
       let total = 0;
+
       project.rating.forEach((rate) => {
         total += rate;
       });
-      let averageRating = total / project.rating.length;
-      Profile.findById(req.user.profile._id).then((self) => {
-        const isSelf = self._id.equals(req.user.profile._id);
-        const name = self.name;
-        const avatar = self.avatar;
+
+      let averageRating = total / project.rating.length || 0;
+
+      if (req.isAuthenticated()) {
+        Profile.findById(req.user.profile._id).then((self) => {
+          const isSelf = self._id.equals(req.user.profile._id);
+          const name = self.name;
+          const avatar = self.avatar;
+          res.render('projects/show', {
+            ownerName,
+            ownerAvatar,
+            averageRating,
+            project,
+            self,
+            isSelf,
+            avatar,
+            name,
+            title: 'Project Details',
+          });
+        });
+      } else {
         res.render('projects/show', {
           ownerName,
           ownerAvatar,
           averageRating,
           project,
-          self,
-          isSelf,
-          avatar,
-          name,
+          name: 'Anonymous',
+          avatar: 'https://imgur.com/AtjZFtn',
           title: 'Project Details',
+          isSelf: false,
         });
-      });
+      }
     })
     .catch((err) => {
       console.log(err);

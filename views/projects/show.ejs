@@ -1,12 +1,7 @@
 <script defer src="/js/projects/rating.js"></script>
 <%- include('../partials/html-head') %>
 <link rel="stylesheet" href="/stylesheets/projects/show.css" />
-<link
-  rel="stylesheet"
-  href="https://use.fontawesome.com/releases/v5.15.4/css/all.css"
-  integrity="sha384-DyZ88mC6Up2uqS4h/KRgHuoeGwBcD4Ng9SiP4dIRy0EXTlnuz47vAwmeGwVChigm"
-  crossorigin="anonymous"
-/>
+
 <%- include('../partials/nav') %>
 
 <main>
@@ -25,14 +20,13 @@
 
     <div id="buildInfo">
       <p>
-        <b>Prep Time:</b> <%=project.PrepTime%><br />
-        <b>Cook Time:</b> <%=project.cookTime%><br />
-        <b>Temperature:</b> <%=project.temp%> Fahrenheit<br />
-        <b>Portions:</b> <%=project.yield%><br />
+        <b>Build Time:</b> <%=project.buildTime%><br />
+        <b>Difficulty:</b> <%=project.difficulty%><br />
+        <b>Estimated Cost:</b> $ <%=project.estimatedCost%><br />
       </p>
     </div>
 
-    <% if (project.ingredients.length) { %>
+    <% if (project.materialsNeeded.length) { %>
     <br />
     <div id="materialList">
       <b>Materials:</b>
@@ -43,10 +37,28 @@
     <% } %>
 
     <br />
-
-    <div id="buildInstructions">
-      <b>Instructions:</b> <%=project.instructions%><br /><br />
+    <% if (project.toolsNeeded.length) { %>
+    <br />
+    <div id="tools-List">
+      <b>Tools:</b>
+      <br />
+      <% project.toolsNeeded.forEach(tool => { %> <%=tool %><br />
+      <%});%>
     </div>
+    <% } %>
+
+    <br />
+
+    <% if(project.builtInstructions.length > 0) { %>
+    <div id="buildInstructions">
+      <b>Instructions:</b> 
+      <ol>
+        <% project.builtInstructions.forEach(instruction => { %>
+        <li><%=instruction %></li>
+        <br /><br />
+        <%});%>
+    </div>
+    <% } %>
 
     <b>Created by:</b> <%=project.ownerName %>
     <img id="commentProfilePic" src="<%=project.ownerAvatar%>" />
@@ -63,7 +75,7 @@
 
       <% if (project.owner.equals(user?.profile._id)) { %>
       <a href="/projects/<%= project._id %>/edit">
-        <input class="btn" value="Edit Recipe" type="submit" />
+        <input class="btn" value="Edit Project" type="submit" />
       </a>
       <form action="/projects/<%= project._id %>?_method=DELETE" method="POST">
         <button class="btn" type="submit">Delete</button>
@@ -115,7 +127,7 @@
           <option value="5">⭐️⭐️⭐️⭐️⭐️</option></select
         ><br /><br />
       </div>
-      <textarea id="commentText" name="content"  rows="5"></textarea>
+      <textarea id="commentText" name="content" rows="5"></textarea>
       <br />
       <br />
       <input hidden name="name" value="<%=name%>" />
@@ -123,7 +135,5 @@
       <button class="btn" type="submit">Add Comment</button>
     </form>
   </div>
-  <% } %>
-  <%- include('../partials/footer') %>
+  <% } %> <%- include('../partials/footer') %>
 </main>
-
