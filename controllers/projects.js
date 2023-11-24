@@ -25,9 +25,6 @@ const index = (req, res) => {
         let averageRating = total / project.rating.length;
         project.averageRating = averageRating;
       });
-      console.log('onlyVisible: ', onlyVisible);
-      console.log('projects: ', projects);
-      console.log(projects)
       res.render('projects/index', {
         title: 'projects',
         projects: onlyVisible,
@@ -56,7 +53,7 @@ const newProject = (req, res) => {
         owner,
         ownerName,
         ownerAvatar,
-        categories
+        categories,
       });
     })
     .catch((err) => {
@@ -78,8 +75,6 @@ const create = (req, res) => {
 };
 
 const show = (req, res) => {
-  console.log('showing project');
-  console.log('User ID: ', req.isAuthenticated());
   Project.findById(req.params.id)
     .populate('comments')
     .exec()
@@ -112,8 +107,6 @@ const show = (req, res) => {
           });
         });
       } else {
-        console.log('not logged in');
-        console.log('project: ', project);
         res.render('projects/show', {
           ownerName,
           ownerAvatar,
@@ -150,7 +143,7 @@ const edit = (req, res) => {
           role,
           title: 'Edit Project',
           project,
-          categories
+          categories,
         });
       });
     })
@@ -161,9 +154,6 @@ const edit = (req, res) => {
 };
 
 const update = (req, res) => {
-  console.log('updating project');
-  console.log('req.body: ', req.body);
-  
   Project.findById(req.params.id)
     .then((project) => {
       if (project.owner.equals(req.user.profile._id)) {
@@ -187,7 +177,7 @@ const deleteProject = (req, res) => {
   Project.findById(req.params.id)
     .then((project) => {
       if (project.owner.equals(req.user.profile._id)) {
-        project.delete().then(() => {
+        project.deleteOne().then(() => {
           res.redirect('/projects');
         });
       } else {
