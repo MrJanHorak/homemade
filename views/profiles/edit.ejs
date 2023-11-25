@@ -1,0 +1,194 @@
+<!-- views/editProfile.ejs -->
+
+<%- include('../partials/html-head') %>
+<link rel="stylesheet" href="/stylesheets/editProfile.css" />
+<%- include('../partials/nav') %>
+
+<main>
+  <div id="editProfile">
+    <h1>Edit Profile</h1>
+
+    <form
+      action="/profiles/<%= profile._id %>?_method=PUT"
+      method="POST"
+      enctype="multipart/form-data"
+    >
+      <label for="name">
+        <b>Name:</b>
+      </label>
+      <input
+        class="formInput"
+        id="name"
+        type="text"
+        name="name"
+        placeholder="Your Name"
+        value="<%= profile.name %>"
+        required
+      />
+
+      <br />
+      <br />
+
+      <label for="avatar">
+        <b>Avatar (Profile Picture):</b>
+      </label>
+      <input class="formInput" id="avatar" type="string" name="avatar" />
+
+      <br />
+      <br />
+
+      <label for="description">
+        <b>Description:</b>
+      </label>
+      <textarea
+        class="formInput"
+        id="description"
+        name="description"
+        placeholder="Tell us about yourself..."
+        rows="4"
+      >
+<%= profile.description %>
+</textarea
+      >
+
+      <br />
+      <br />
+
+      <label for="location">
+        <b>Location:</b>
+      </label>
+      <input
+        class="formInput"
+        id="location"
+        type="text"
+        name="location"
+        placeholder="Your Location"
+        value="<%= profile.location %>"
+      />
+
+      <br />
+      <br />
+
+      <label for="website">
+        <b>Website:</b>
+      </label>
+      <input
+        class="formInput"
+        id="website"
+        type="text"
+        name="website"
+        placeholder="Your Website"
+        value="<%= profile.website %>"
+      />
+
+      <br />
+      <br />
+
+      <label>
+        <b>Social Media:</b>
+      </label>
+      <input
+        class="formInput"
+        type="text"
+        name="social.facebook"
+        placeholder="Facebook"
+        value="<%= profile.social.facebook %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.twitter"
+        placeholder="Twitter"
+        value="<%= profile.social.twitter %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.linkedin"
+        placeholder="LinkedIn"
+        value="<%= profile.social.linkedin %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.youtube"
+        placeholder="YouTube"
+        value="<%= profile.social.youtube %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.instagram"
+        placeholder="Instagram"
+        value="<%= profile.social.instagram %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.github"
+        placeholder="GitHub"
+        value="<%= profile.social.github %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.reddit"
+        placeholder="Reddit"
+        value="<%= profile.social.reddit %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.tiktok"
+        placeholder="TikTok"
+        value="<%= profile.social.tiktok %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.medium"
+        placeholder="Medium"
+        value="<%= profile.social.medium %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.discord"
+        placeholder="Discord"
+        value="<%= profile.social.discord %>"
+      />
+      <input
+        class="formInput"
+        type="text"
+        name="social.other"
+        placeholder="other"
+        value="<%= profile.social.other %>"
+      />
+      <br />
+      <br />
+
+      <label>
+        <b>Skills:</b>
+      </label>
+
+      <% categories.forEach(category => { %>
+      <label>
+        <input
+          type="checkbox"
+          name="skills"
+          value="<%= category %>"
+          <%if(profile.skills.includes(category.value)){%>checked<% } %> />
+          
+        <%= category.label %>
+      </label>
+      <% }); %>
+
+      <br />
+      <br />
+
+      <button class="btn" type="submit">Update Profile</button>
+    </form>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

@@ -22,6 +22,8 @@
             <li><a href="/profiles/">All Profiles</a></li>
             <li><a href="/profiles/<%=user.profile.id%>">Your Profile<img id="profilePic" src="<%= user.profile.avatar %>" 
         alt="<%= user.profile.name %> avatar"></a></li>
+            <li><a href="/profiles/<%=user.profile.id%>/edit">Update Your Profile<img id="profilePic" src="<%= user.profile.avatar %>" 
+        alt="<%= user.profile.name %> avatar"></a></li>
             <li><a href="/auth/logout">Logout</a></li>
           </ul>  
         </li>

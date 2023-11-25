@@ -1,6 +1,8 @@
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
 
+import categories from '../data/categories.js';
+
 const index = (req, res) => {
   Profile.find({})
     .then((profiles) => {
@@ -56,6 +58,7 @@ const edit = (req, res) => {
           role,
           title: 'Edit Profile',
           profile,
+          categories
         });
       });
     })
