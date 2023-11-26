@@ -1,0 +1,40 @@
+main{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 100px;
+}
+#topSpaceBuffer {
+  height: 100px;
+}
+
+#projectIndexCard {
+  width: 490px;
+  height: 590px;
+  border-radius: 30px;
+  background: #e0e0e0;
+  box-shadow: 15px 15px 30px #bebebe, -15px -15px 30px #ffffff;
+}
+
+#projectIndexCard:hover {
+  background-color: rgb(209, 179, 87);
+}
+
+#projectIndexCard h2 {
+  font-size: 1.5em;
+  margin: 0;
+  padding: 0;
+}
+
+#projectPic {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+}
+
+#ownerAvatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}

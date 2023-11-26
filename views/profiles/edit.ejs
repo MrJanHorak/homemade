@@ -11,7 +11,6 @@
     <form
       action="/profiles/<%= profile._id %>?_method=PUT"
       method="POST"
-      enctype="multipart/form-data"
     >
       <label for="name">
         <b>Name:</b>
@@ -32,7 +31,7 @@
       <label for="avatar">
         <b>Avatar (Profile Picture):</b>
       </label>
-      <input class="formInput" id="avatar" type="string" name="avatar" />
+      <input class="formInput" id="avatar" type="string" name="avatar" value="<%= profile.avatar %>"/>
 
       <br />
       <br />
