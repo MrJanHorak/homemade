@@ -8,6 +8,9 @@ main {
 
 .info{
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-items: center;
   width: 100%;
 }
 
@@ -22,6 +25,12 @@ main {
   margin: 0 5px 0 5px;
 }
 
+.project-icons{
+height: 35px;
+width: auto;
+margin: 0 5px 0 5px;
+}
+
 #topSpaceBuffer {
   height: 100px;
 }
@@ -33,7 +42,7 @@ main {
 
 #projectIndexCard {
   width: 490px;
-  height: 590px;
+  height: auto;
   border-radius: 0 30px 10px 30px;
   background: #e0e0e0;
   box-shadow: 15px 15px 30px #bebebe, -15px -15px 30px #ffffff;
@@ -48,7 +57,6 @@ main {
   font-size: 1.5em;
   font-weight: bold;
   font-family: Arial, Helvetica, sans-serif;
-  height: 30px;
   color: black ;
 }
 
@@ -67,16 +75,19 @@ main {
 }
 
 #categories {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  padding: 0 8px 0 8px;
+  margin: 12px;
 }
 
 #ownerAvatar {
   width: 50px;
   height: 50px;
   border-radius: 50%;
+  margin: 15px 5px 5px 5px;
+}
+
+#buildDescription{
+  padding: 0 8px 0 8px;
+  font-size: 1.2em;
+  font-family: Arial, Helvetica, sans-serif;
+  color: black ;
 }

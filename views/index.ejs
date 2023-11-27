@@ -17,25 +17,67 @@
         <% } %>
         <h2><%=project.title%></h2>
         <div id="project-time-difficulty">
-          <div class="info"><b>Difficulty:</b> <%=project.difficulty%></div>
-          <div class="info"><b>Build Time:</b> <%=project.buildTime%></div>
+          <div class="info">
+            <img
+              class="project-icons"
+              src="/images/projects/spirit-level-svgrepo-com.svg"
+              alt="difficulty level"
+            />
+            <%=project.difficulty%>/10
+          </div>
+          <div class="info">
+            <img
+              class="project-icons"
+              src="/images/projects/time-lapse-2-svgrepo-com.svg"
+              alt="build time"
+            />
+            <%=project.buildTime%> hours
+          </div>
+          <div class="info">
+            <img
+              class="project-icons"
+              src="/images/projects/like-svgrepo-com.svg"
+              alt="likes"
+            />
+            <%=project.likes%>
+          </div>
+          <div class="info">
+            <img
+              class="project-icons"
+              src="/images/projects/rating-svgrepo-com.svg"
+              alt="rating"
+            />
+            <%=project.averageRating%>
+          </div>
         </div>
-        <div id="categories">
-          <b>Categories:</b>
+        <div class="info" id="categories">
+          <img
+            class="project-icons"
+            src="/images/projects/category-2-svgrepo-com.svg"
+            alt="categories"
+          />
           <% project.categories.forEach(category => { %>
           <span class="cat-pill"><%=category%></span>
           <% }) %>
           <br />
         </div>
-        <b>Likes:</b> <%=project.likes%><br />
-        <b>Rating:</b> <%=project.averageRating%><br />
 
-        <div id="buildDescription">
-          <b>Description:</b> <%=project.description%>
+        <div class="info" id="buildDescription">
+          <img
+            class="project-icons"
+            src="/images/projects/description-svgrepo-com.svg"
+            alt="description"
+          />
+          <%=project.description%>
         </div>
-
-        <img id=""onwerAvatar" src="<%=project.ownerAvatar%>" alt="picture of
-        project owner">
+        <div class="info">
+          <img
+            id="ownerAvatar"
+            src="<%=project.ownerAvatar%>"
+            alt="picture of
+        project owner"
+          /><%=project.ownerName%>
+        </div>
       </div>
     </a>
     <%})%>
