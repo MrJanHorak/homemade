@@ -6,8 +6,29 @@ main {
   min-height: 99vh;
 }
 
+.info{
+  display: flex;
+  width: 100%;
+}
+
+.cat-pill {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  background-color: #e5d14f;
+  border-radius: 10px;
+  padding: 5px 10px 5px 10px;
+  margin: 0 5px 0 5px;
+}
+
 #topSpaceBuffer {
   height: 100px;
+}
+
+#projectsIndexView a {
+  text-decoration: none;
+  color: black;
 }
 
 #projectIndexCard {
@@ -19,19 +40,39 @@ main {
 }
 
 #projectIndexCard:hover {
-  background-color: rgb(209, 179, 87);
+  background-color:white;
 }
 
-#projectIndexCard h2 {
+#projectIndexCard h2{
+  padding: 8px 0 0 8px;
   font-size: 1.5em;
-  margin: 0;
-  padding: 0;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  height: 30px;
+  color: black ;
+}
+
+#project-time-difficulty {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 0 8px 0 8px;
 }
 
 #projectPic {
   width: 100%;
   height: auto;
   border-radius: 5px;
+}
+
+#categories {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0 8px 0 8px;
 }
 
 #ownerAvatar {

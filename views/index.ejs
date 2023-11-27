@@ -1,34 +1,45 @@
-<%- include('./partials/html-head') %>
-<%- include('./partials/nav') %>
-<link rel="stylesheet" href="/stylesheets/projects/index.css">
+<%- include('./partials/html-head') %> <%- include('./partials/nav') %>
+<link rel="stylesheet" href="/stylesheets/projects/index.css" />
 
 <main>
   <div id="topSpaceBuffer"></div>
 
   <div id="projectsIndexView">
     <% projects.forEach(project =>{ %>
-        <a href="/projects/<%= project._id %>">
-          <div id="projectIndexCard">
-            <h2><%=project.title%></h2>
-            <% if (project.buildPictures.length > 0) {%>
-              <img id="projectPic" src="<%=project.buildPictures[0]%>" alt="picture of completed project">
-            <% } %>
-            <p>
-              <b>Difficulty:</b> <%=project.difficulty%><br/>
-              <b>Build Time:</b> <%=project.buildTime%>  
-              <b>Categories:</b> <%=project.categories%><br/>
-              <b>Likes:</b> <%=project.likes%><br/>
-              <b>Rating:</b> <%=project.averageRating%><br/>
-              <div id="buildDescription">
-                <b>Description:</b> <%=project.description%>
-              </div>
-            </p>
-            <img id=""onwerAvatar" src="<%=project.ownerAvatar%>" alt="picture of project owner">
-          </div>
-        </a>
+    <a href="/projects/<%= project._id %>">
+      <div id="projectIndexCard">
+        <% if (project.buildPictures.length > 0) {%>
+        <img
+          id="projectPic"
+          src="<%=project.buildPictures[0]%>"
+          alt="picture of completed project"
+        />
+        <% } %>
+        <h2><%=project.title%></h2>
+        <div id="project-time-difficulty">
+          <div class="info"><b>Difficulty:</b> <%=project.difficulty%></div>
+          <div class="info"><b>Build Time:</b> <%=project.buildTime%></div>
+        </div>
+        <div id="categories">
+          <b>Categories:</b>
+          <% project.categories.forEach(category => { %>
+          <span class="cat-pill"><%=category%></span>
+          <% }) %>
+          <br />
+        </div>
+        <b>Likes:</b> <%=project.likes%><br />
+        <b>Rating:</b> <%=project.averageRating%><br />
+
+        <div id="buildDescription">
+          <b>Description:</b> <%=project.description%>
+        </div>
+
+        <img id=""onwerAvatar" src="<%=project.ownerAvatar%>" alt="picture of
+        project owner">
+      </div>
+    </a>
     <%})%>
   </div>
 
   <%- include('./partials/footer') %>
 </main>
-
