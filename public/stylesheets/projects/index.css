@@ -3,8 +3,9 @@ main{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-top: 100px;
+  min-height: 100vh;
 }
+
 #topSpaceBuffer {
   height: 100px;
 }
