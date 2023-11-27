@@ -1,40 +1,100 @@
 <!-- <link rel="stylesheet" href="/stylesheets/nav.css"> -->
-<link href="https://fonts.googleapis.com/css?family=Arvo&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/stylesheets/NAV/nav.css">
+<link
+  href="https://fonts.googleapis.com/css?family=Arvo&display=swap"
+  rel="stylesheet"
+/>
+<link rel="stylesheet" href="/stylesheets/nav/nav.css" />
 <!-- </head> -->
 <div id="nav-main">
   <div id="maintitle">
     <a href="/">
-    <img id="logo" src="/images/homemadelogo.png" alt="homemade logo">
+      <img id="logo" src="/images/homemadelogo.png" alt="homemade logo" />
     </a>
   </div>
 
   <nav>
     <ul>
       <% if (user) { %>
-        <li><a href="/">Home</a></li>
-          <li><a href="/projects/">View All</a></li>
-          <li><a href="/projects/new">Add One</a></li>
-          <li><a href="/profiles/">All Profiles</a></li>
-          <li><a href="/profiles/<%=user.profile.id%>/edit">Update Your Profile </a></li>
-          <li><a href="/profiles/<%=user.profile.id%>">Your Profile<img id="profilePic" src="<%= user.profile.avatar %>" 
-        alt="<%= user.profile.name %> avatar"></a></li>
-          <li><a href="/auth/logout">Logout</a></li>
-    </ul>
-  </nav>
-<!-- </div> -->
-
-      <% } else { %>
-        <li><a href="/">Home</a></li>
-        <li><a href="/projects/">View All</a></li>
-        <li><a href="/auth/google" class="siwg-link">
-          <button type="submit" class="siwg">
-            <img id="siwg-image" src="/images/auth/google/siwg_dark_focus.png" alt="Sign in with Google" />
-          </button>
+      <li>
+        <a href="/"
+          ><img
+            class="icon"
+            src="/images/nav/home-button-svgrepo-com.svg"
+            alt="home button"
+        /></a>
+      </li>
+      <li>
+        <a href="/projects/new"
+          ><img
+            class="icon"
+            src="/images/nav/add-square-svgrepo-com.svg"
+            alt="add project icon"
+        /></a>
+      </li>
+      <li>
+        <a href="/profiles/"
+          ><img
+            id="all-profiles-icon"
+            class="icon"
+            src="/images/nav/multiple-user-profile-images-svgrepo-com.svg"
+            alt="all profiles icon"
+        /></a>
+      </li>
+      <li>
+        <a href="/profiles/<%=user.profile.id%>/edit"
+          ><img
+            class="icon"
+            src="/images/nav/setting-svgrepo-com.svg"
+            alt="profile setting icon"
+          />
         </a>
       </li>
+      <li>
+        <a href="/profiles/<%=user.profile.id%>"
+          ><img
+            class="icon"
+            src="/images/nav/profile-1336-svgrepo-com.svg"
+            alt="<%= user.profile.name %> avatar"
+        /></a>
+      </li>
+      <li>
+        <a id="login-link" href="/auth/logout"
+          ><img
+            class="icon"
+            src="/images/nav/logout-svgrepo-com.svg"
+            alt="logout button icon"
+        /></a>
+      </li>
+
+      <% } else { %>
+
+      <li>
+        <a href="/"
+          ><img
+            class="icon"
+            src="/images/nav/home-button-svgrepo-com.svg"
+            alt="home button"
+        /></a>
+      </li>
+      <li>
+        <a href="/profiles/"
+          ><img
+            id="all-profiles-icon"
+            class="icon"
+            src="/images/nav/multiple-user-profile-images-svgrepo-com.svg"
+            alt="all profiles icon"
+        /></a>
+      </li>
+      <li>
+        <a href="/auth/google">
+          <img
+            id="siwg-image"
+            src="/images/auth/google/siwg_light_focus.png"
+            alt="Sign in with Google"
+        /></a>
+      </li>
       <% } %>
+    </ul>
   </nav>
-</div>
 </div>
 <body>
