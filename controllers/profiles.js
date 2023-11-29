@@ -1,6 +1,6 @@
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
-import { profilePicstoS3 } from '../jsServices/s3Service.js';
+import { profilePicstoS3 } from '../services/s3Service.js';
 
 import categories from '../data/categories.js';
 

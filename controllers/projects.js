@@ -1,6 +1,6 @@
 import { Project } from '../models/project.js';
 import { Profile } from '../models/profile.js';
-import { projectPicstoS3 } from '../services/s3.js';
+import { projectPicstoS3 } from '../services/s3Service.js';
 import categories from '../data/categories.js';
 
 const index = (req, res) => {
