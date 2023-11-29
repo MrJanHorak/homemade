@@ -2,8 +2,10 @@ import { S3 } from 'aws-sdk';
 import uuid from 'uuid/v4';
 
 const projectPicstoS3 = async (files) => {
-
-  const s3 = new S3();
+  const s3 = new S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  });
 
   const params = files.map((file) => ({
     Bucket: process.env.AWS_BUCKET_NAME,
@@ -19,7 +21,10 @@ const projectPicstoS3 = async (files) => {
 };
 
 const profilePicstoS3 = async (file) => {
-  const s3 = new S3();
+  const s3 = new S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  });
 
   const params = {
     Bucket: process.env.AWS_BUCKET_NAME,

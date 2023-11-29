@@ -1,5 +1,6 @@
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
+import { profilePicstoS3 } from '../jsServices/s3Service.js';
 
 import categories from '../data/categories.js';
 
@@ -58,7 +59,7 @@ const edit = (req, res) => {
           role,
           title: 'Edit Profile',
           profile,
-          categories
+          categories,
         });
       });
     })
@@ -66,10 +67,21 @@ const edit = (req, res) => {
       console.log(err);
       res.redirect('/profiles');
     });
-}
+};
 
 const update = (req, res) => {
-  console.log(req.body)
+  console.log(req.body);
+  if (req.file) {
+    profilePicstoS3(req.file)
+      .then((url) => {
+        req.body.avatar = url;
+      })
+      .catch((err) => {
+        console.log(err);
+        res.redirect('/profiles');
+      });
+  }
+
   Profile.findByIdAndUpdate(req.params.id, req.body, { new: true })
     .then((profile) => {
       res.redirect(`/profiles/${profile._id}`);
@@ -78,7 +90,6 @@ const update = (req, res) => {
       console.log(err);
       res.redirect('/profiles');
     });
-}
-
+};
 
 export { index, show, edit, update };

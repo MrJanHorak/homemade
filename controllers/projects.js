@@ -2,8 +2,6 @@ import { Project } from '../models/project.js';
 import { Profile } from '../models/profile.js';
 import { projectPicstoS3 } from '../services/s3.js';
 import categories from '../data/categories.js';
-import multer from 'multer';
-import aws from 'aws-sdk';
 
 const index = (req, res) => {
   console.log('index');
@@ -69,9 +67,6 @@ const create = async (req, res) => {
   console.log(req.files)
   try {
     req.body.visible = !!req.body.visible;
-
-    const storage = multer.memoryStorage();
-    const upload = multer({ storage }).array('projectPics', 12);
 
     if (
       req.files &&
@@ -169,24 +164,31 @@ const edit = (req, res) => {
     });
 };
 
-const update = (req, res) => {
-  Project.findById(req.params.id)
-    .then((project) => {
-      if (project.owner.equals(req.user.profile._id)) {
-        req.body.visible = !!req.body.visible;
-        project.updateOne(req.body, { new: true }).then(() => {
-          res.redirect(`/projects/${project._id}`);
-        });
-      } else {
-        throw new Error(
-          '🚫 You are absolutely NOT authorised to even try that!!! 🚫'
-        );
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-      res.redirect('/projects');
-    });
+const update = async (req, res) => {
+  try {
+
+    if (req.files && req.files.length > 0) {
+      const projectPicsUrls = await projectPicstoS3(req.files);
+      req.body.projectPictures = projectPicsUrls;
+    }
+
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    if (!project.owner.equals(req.user.profile._id)) {
+      throw new Error('You are not authorized to edit this project');
+    }
+
+    await project.updateOne(req.body, { new: true });
+
+    res.redirect(`/projects/${project._id}`);
+  } catch (err) {
+    console.error(err);
+    res.redirect('/projects');
+  }
 };
 
 const deleteProject = (req, res) => {
