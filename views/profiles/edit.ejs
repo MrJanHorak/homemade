@@ -11,6 +11,7 @@
     <form
       action="/profiles/<%= profile._id %>?_method=PUT"
       method="POST"
+      enctype="multipart/form-data"
     >
       <label for="name">
         <b>Name:</b>
@@ -31,7 +32,14 @@
       <label for="avatar">
         <b>Avatar (Profile Picture):</b>
       </label>
-      <input class="formInput" id="avatar" type="string" name="avatar" value="<%= profile.avatar %>"/>
+      <input
+        class="formInput"
+        id="avatar"
+        type="file"
+        name="avatar"
+        accept="image/*"
+        value="<%= profile.avatar %>"
+      />
 
       <br />
       <br />
@@ -169,9 +177,8 @@
           type="checkbox"
           name="skills"
           value="<%= category %>"
-          <%if(profile.skills.includes(category.value)){%>checked<% } %> />
-          
-        <%= category.label %>
+          <%if(profile.skills.includes(category.value)){%
+        />checked<% } %> /> <%= category.label %>
       </label>
       <% }); %>
 

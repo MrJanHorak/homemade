@@ -188,18 +188,24 @@
           <br />
           <label>
             <b>Picture URL:</b>
-            <% project.buildPictures.forEach(picture => { %>
+            <% project.buildPictures.forEach((picture, idx) => { %>
+              <img src="<%=picture%>" alt="build picture <%= idx+1 %>">
+            </label>
+            <br />
+            <% }) %>
+            <br />
+            <label>
+              <b>Add more pictures:</b>
+              <br />
             <input
               class="formInput"
-              type="text"
-              name="picture"
+              type="file"
+              name="buildPictures"
               size="43"
               id="pictureUrl"
               value="<%=picture%>"
             />
-          </label>
-          <br />
-          <% }) %>
+            </label>
           <br />
           <div id="external-link-container">
             <label>

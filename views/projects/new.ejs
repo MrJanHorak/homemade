@@ -11,7 +11,7 @@
     <% if (user?.profile._id) { %>
 
     <div id="creatProject">
-      <form action="/projects" method="POST">
+      <form action="/projects" method="POST" enctype="multipart/form-data">
         <label for="projectTitle">
           <b>Project Title:</b>
         </label>
@@ -157,16 +157,17 @@
             >
           </button>
           <br />
-          <label>
-            <b>Picture URL:</b>
-            <input
-              class="formInput"
-              type="text"
-              name="picture"
-              size="43"
-              id="pictureUrl"
-            />
+          <label for="projectPictures">
+            <b>Project Pictures:</b>
           </label>
+          <input
+            class="formInput"
+            id="projectPictures"
+            type="file"
+            name="buildPictures"
+            multiple
+            accept="image/*"
+          />
           <br />
           <br />
           <div id="external-link-container">
