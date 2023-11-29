@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as projectCtrl from '../controllers/projects.js';
-import { isLoggedIn, passUserToView } from '../middleware/middleware.js';
+import { isLoggedIn } from '../middleware/middleware.js';
 
 const router = Router();
 

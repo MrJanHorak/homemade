@@ -1,7 +1,9 @@
 import { Project } from '../models/project.js';
 import { Profile } from '../models/profile.js';
-
+import { projectPicstoS3 } from '../services/s3.js';
 import categories from '../data/categories.js';
+import multer from 'multer';
+import aws from 'aws-sdk';
 
 const index = (req, res) => {
   console.log('index');
@@ -62,16 +64,30 @@ const newProject = (req, res) => {
     });
 };
 
-const create = (req, res) => {
-  req.body.visible = !!req.body.visible;
-  Project.create(req.body)
-    .then(() => {
-      res.redirect('/projects');
-    })
-    .catch((err) => {
-      console.log(err);
-      res.redirect('/projects');
-    });
+const create = async (req, res) => {
+
+  console.log(req.files)
+  try {
+    req.body.visible = !!req.body.visible;
+
+    const storage = multer.memoryStorage();
+    const upload = multer({ storage }).array('projectPics', 12);
+
+    if (
+      req.files &&
+      req.files.length > 0
+    ) {
+      const projectPicsUrls = await projectPicstoS3(req.files);
+      req.body.projectPictures = projectPicsUrls;
+    }
+
+    await Project.create(req.body);
+
+    res.redirect('/projects');
+  } catch (err) {
+    console.log(err);
+    res.redirect('/projects');
+  }
 };
 
 const show = (req, res) => {

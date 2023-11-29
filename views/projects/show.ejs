@@ -6,18 +6,22 @@
 
 <main>
   <div id="topSpaceBuffer"></div>
-  <h1><%= title %></h1>
+
   <div id="projectDetailView">
-    <h2><%=project.title%></h2>
     <% if (project.buildPictures.length >0) {%>
-    <div id="projectImage">
-      <img src="<%=project.buildPictures[0]%>" />
-    </div>
+      <img id="projectImage" src="<%=project.buildPictures[0]%>" />
     <% } %>
+    <h1><%=project.title%></h1>
 
-    <div id="projectDescription">
-      <p><%=project.description%></p>
-
+    <div class="info" id="buildDescription">
+      <img
+        class="project-icons"
+        src="/images/projects/description-svgrepo-com.svg"
+        alt="description"
+      />
+      <%=project.description%>
+    </div>
+    
     <div id="buildInfo">
       <p>
         <b>Build Time:</b> <%=project.buildTime%><br />
