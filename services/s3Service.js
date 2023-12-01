@@ -26,6 +26,7 @@ const projectPicstoS3 = async (files) => {
 
 const profilePicstoS3 = async (file) => {
   console.log('uploading to s3', file)
+  const fileName = `${uuidv4()}-${file.originalname}`
   const s3 = new S3Client({
     region: REGION,
     accessKeyId: process.env.AWS_ACCESS_KEY,
@@ -34,14 +35,14 @@ const profilePicstoS3 = async (file) => {
 
   const params = {
     Bucket: process.env.AWS_BUCKET_NAME,
-    Key: `profiles/${uuidv4()}-${file.originalname}`,
+    Key: `profiles/${fileName}`,
     Body: file.buffer
   };
 
   const command = new PutObjectCommand(params);
   const result = await s3.send(command);
 
-  return result.Location;
+  return fileName
 };
 
 

@@ -68,29 +68,23 @@ const edit = (req, res) => {
     });
 };
 
-const update = (req, res) => {
+const update = async (req, res) => {
   console.log(req.body);
-  if (req.file) {
-    profilePicstoS3(req.file)
-      .then((url) => {
-        console.log('AFTER UPLOAD', url)
-        req.body.avatar = url;
-        console.log("AFTER UPLOAD",req.body);
-      })
-      .catch((err) => {
-        console.log(err);
-        res.redirect('/profiles');
-      });
-  }
+  try {
+    if (req.file) {
+      const url = await profilePicstoS3(req.file);
+      console.log('AFTER UPLOAD', url);
+      req.body.avatar = `https://homemadesocialsite.s3.amazonaws.com/profiles/${url}`;
+      console.log("AFTER UPLOAD", req.body);
+    }
 
-  Profile.findByIdAndUpdate(req.params.id, req.body, { new: true })
-    .then((profile) => {
-      res.redirect(`/profiles/${profile._id}`);
-    })
-    .catch((err) => {
-      console.log(err);
-      res.redirect('/profiles');
-    });
+    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.redirect(`/profiles/${profile._id}`);
+  } catch (err) {
+    console.error(err);
+    res.redirect('/profiles');
+  }
 };
+
 
 export { index, show, edit, update };
