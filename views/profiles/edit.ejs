@@ -44,19 +44,14 @@
       <br />
       <br />
 
-      <label for="description">
-        <b>Description:</b>
-      </label>
       <textarea
-        class="formInput"
-        id="description"
-        name="description"
-        placeholder="Tell us about yourself..."
-        rows="4"
-      >
-<%= profile.description %>
-</textarea
-      >
+      class="formInput"
+      id="description"
+      name="description"
+      placeholder="Tell us about yourself..."
+      rows="4"
+    ><%= profile.description %></textarea>
+    
 
       <br />
       <br />
@@ -176,9 +171,12 @@
         <input
           type="checkbox"
           name="skills"
-          value="<%= category %>"
-          <%if(profile.skills.includes(category.value)){%
-        />checked<% } %> /> <%= category.label %>
+          value="<%= category.value %>"
+          <%if(profile.skills.includes(category.value)){%>
+        checked
+        <% } %>
+         /> 
+         <%= category.label %>
       </label>
       <% }); %>
 

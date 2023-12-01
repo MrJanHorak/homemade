@@ -190,6 +190,7 @@
             <b>Picture URL:</b>
             <% project.buildPictures.forEach((picture, idx) => { %>
               <img src="<%=picture%>" alt="build picture <%= idx+1 %>">
+              <input type="text" class="buildPictures" value="<%=picture%>">
             </label>
             <br />
             <% }) %>
@@ -203,7 +204,6 @@
               name="buildPictures"
               size="43"
               id="pictureUrl"
-              value="<%=picture%>"
             />
             </label>
           <br />

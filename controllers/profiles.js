@@ -48,21 +48,20 @@ const show = (req, res) => {
 };
 
 const edit = (req, res) => {
-  Profile.findById(req.params.id)
-    .then((profile) => {
-      Profile.findById(req.user.profile._id).then((self) => {
+  console.log('edit profile')
+  console.log(req.params.id)
+  Profile.findById(req.params.id).then((self) => {
         const role = self.role;
-        const isSelf = self._id.equals(profile._id);
+        const isSelf = self._id.equals(self._id);
         res.render('profiles/edit', {
           self,
           isSelf,
           role,
           title: 'Edit Profile',
-          profile,
+          profile: self,
           categories,
         });
-      });
-    })
+      })
     .catch((err) => {
       console.log(err);
       res.redirect('/profiles');
@@ -74,7 +73,9 @@ const update = (req, res) => {
   if (req.file) {
     profilePicstoS3(req.file)
       .then((url) => {
+        console.log('AFTER UPLOAD', url)
         req.body.avatar = url;
+        console.log("AFTER UPLOAD",req.body);
       })
       .catch((err) => {
         console.log(err);
