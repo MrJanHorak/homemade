@@ -37,7 +37,7 @@ const projectPicstoS3 = async (files) => {
 };
 
 const profilePicstoS3 = async (file) => {
-  console.log('uploading to s3', file);
+
   const fileName = `${uuidv4()}-${file.originalname}`;
   const s3 = new S3Client({
     region: REGION,

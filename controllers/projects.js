@@ -8,15 +8,14 @@ const index = (req, res) => {
   Project.find({})
     .sort({ name: 'asc' })
     .then((projects) => {
-      // filter out projects that are not visible
       const onlyVisible = projects.filter((project) => {
         return project.visible;
       });
-      // calculate the number of likes for each project and add it to the project object
+
       onlyVisible.forEach((project) => {
         project.likes = project.likes.length;
       });
-      // calculate the average rating for each project and add it to the project object
+
       onlyVisible.forEach((project) => {
         let total = 0;
         project.rating.forEach((rate) => {
@@ -63,16 +62,10 @@ const newProject = (req, res) => {
 };
 
 const create = async (req, res) => {
-  console.log('create');
-  console.log(req.body)
-  console.log(req.files)
   try {
     req.body.visible = !!req.body.visible;
 
-    if (
-      req.files &&
-      req.files.length > 0
-    ) {
+    if (req.files && req.files.length > 0) {
       const projectPicsUrls = await projectPicstoS3(req.files);
       req.body.buildPictures = projectPicsUrls;
     }
@@ -167,14 +160,8 @@ const edit = (req, res) => {
 
 const update = async (req, res) => {
   try {
-
-    if (req.files && req.files.length > 0) {
-      const projectPicsUrls = await projectPicstoS3(req.files);
-      req.body.projectPictures = projectPicsUrls;
-    }
-
     const project = await Project.findById(req.params.id);
-
+    console.log(project);
     if (!project) {
       throw new Error('Project not found');
     }
@@ -183,8 +170,17 @@ const update = async (req, res) => {
       throw new Error('You are not authorized to edit this project');
     }
 
-    await project.updateOne(req.body, { new: true });
+    if (req.files && req.files.length > 0) {
+      const newProjectPicsUrls = await projectPicstoS3(req.files);
 
+      req.body.buildPictures = [
+        ...project.buildPictures,
+        ...newProjectPicsUrls,
+      ];
+    } else {
+      req.body.buildPictures = project.buildPictures;
+    }
+    await project.updateOne(req.body, { new: true });
     res.redirect(`/projects/${project._id}`);
   } catch (err) {
     console.error(err);

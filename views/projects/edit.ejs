@@ -12,7 +12,8 @@
     <% if (user?.profile._id) { %>
 
     <div id="creatProject">
-      <form action="/projects/<%= project._id%>?_method=PUT" method="POST">
+      <form action="/projects/<%= project._id%>?_method=PUT" method="POST"
+        enctype="multipart/form-data">
         <label for="projectTitle">
           <b>Project Title:</b>
         </label>
