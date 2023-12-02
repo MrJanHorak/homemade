@@ -1,6 +1,7 @@
 <%- include('./partials/html-head') %> <%- include('./partials/nav') %>
 <link rel="stylesheet" href="/stylesheets/projects/index.css" />
 
+
 <main>
   <div id="topSpaceBuffer"></div>
 
@@ -8,13 +9,31 @@
     <% projects.forEach(project =>{ %>
     <a href="/projects/<%= project._id %>">
       <div id="projectIndexCard">
-        <% if (project.buildPictures.length > 0) {%>
-        <img
-          id="projectPic"
-          src="<%=project.buildPictures[0]%>"
-          alt="picture of completed project"
-        />
-        <% } %>
+        <% if (project.buildPictures.length > 0) { %>
+          <div id="carouselExampleIndicators" class="carousel slide">
+            <div class="carousel-indicators">
+              <% project.buildPictures.forEach((_, index) => { %>
+                <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="<%= index %>" <%= index === 0 ? 'class="active"' : '' %> aria-label="Slide <%= index + 1 %>"></button>
+              <% }) %>
+            </div>
+            <div class="carousel-inner">
+              <% project.buildPictures.forEach((picture, index) => { %>
+                <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                  <img src="<%= picture %>" class="d-block w-100" alt="Slide <%= index + 1 %>">
+                </div>
+              <% }) %>
+            </div>
+            <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide="prev">
+              <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide="next">
+              <span class="carousel-control-next-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Next</span>
+            </button>
+          </div>
+          
+          <% } %>
         <h2><%=project.title%></h2>
         <div id="project-time-difficulty">
           <div class="info">
