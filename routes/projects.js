@@ -6,7 +6,7 @@ import multer from 'multer';
 const router = Router();
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage }).array('projectPics', 12);
+const upload = multer({ storage }).array('buildPictures', 12);
 
 router.get('/', projectCtrl.index);
 router.get('/new', isLoggedIn, projectCtrl.new);

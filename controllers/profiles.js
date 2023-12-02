@@ -48,20 +48,19 @@ const show = (req, res) => {
 };
 
 const edit = (req, res) => {
-  console.log('edit profile')
-  console.log(req.params.id)
-  Profile.findById(req.params.id).then((self) => {
-        const role = self.role;
-        const isSelf = self._id.equals(self._id);
-        res.render('profiles/edit', {
-          self,
-          isSelf,
-          role,
-          title: 'Edit Profile',
-          profile: self,
-          categories,
-        });
-      })
+  Profile.findById(req.params.id)
+    .then((self) => {
+      const role = self.role;
+      const isSelf = self._id.equals(self._id);
+      res.render('profiles/edit', {
+        self,
+        isSelf,
+        role,
+        title: 'Edit Profile',
+        profile: self,
+        categories,
+      });
+    })
     .catch((err) => {
       console.log(err);
       res.redirect('/profiles');
@@ -73,18 +72,17 @@ const update = async (req, res) => {
   try {
     if (req.file) {
       const url = await profilePicstoS3(req.file);
-      console.log('AFTER UPLOAD', url);
       req.body.avatar = `https://homemadesocialsite.s3.amazonaws.com/profiles/${url}`;
-      console.log("AFTER UPLOAD", req.body);
     }
 
-    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
     res.redirect(`/profiles/${profile._id}`);
   } catch (err) {
     console.error(err);
     res.redirect('/profiles');
   }
 };
-
 
 export { index, show, edit, update };

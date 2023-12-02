@@ -63,7 +63,8 @@ const newProject = (req, res) => {
 };
 
 const create = async (req, res) => {
-
+  console.log('create');
+  console.log(req.body)
   console.log(req.files)
   try {
     req.body.visible = !!req.body.visible;
@@ -73,7 +74,7 @@ const create = async (req, res) => {
       req.files.length > 0
     ) {
       const projectPicsUrls = await projectPicstoS3(req.files);
-      req.body.projectPictures = projectPicsUrls;
+      req.body.buildPictures = projectPicsUrls;
     }
 
     await Project.create(req.body);
