@@ -1,5 +1,3 @@
-<!-- views/editProfile.ejs -->
-
 <%- include('../partials/html-head') %>
 <link rel="stylesheet" href="/stylesheets/editProfile.css" />
 <%- include('../partials/nav') %>
@@ -8,180 +6,51 @@
   <div id="editProfile">
     <h1>Edit Profile</h1>
 
-    <form
-      action="/profiles/<%= profile._id %>?_method=PUT"
-      method="POST"
-      enctype="multipart/form-data"
-    >
-      <label for="name">
-        <b>Name:</b>
-      </label>
-      <input
-        class="formInput"
-        id="name"
-        type="text"
-        name="name"
-        placeholder="Your Name"
-        value="<%= profile.name %>"
-        required
-      />
+    <form action="/profiles/<%= profile._id %>?_method=PUT" method="POST" enctype="multipart/form-data">
+      <label for="name"><b>Name:</b></label>
+      <input class="formInput" id="name" type="text" name="name" placeholder="Your Name" value="<%= profile.name %>" required />
 
-      <br />
-      <br />
+      <br /><br />
 
-      <label for="avatar">
-        <b>Avatar (Profile Picture):</b>
-      </label>
-      <input
-        class="formInput"
-        id="avatar"
-        type="file"
-        name="avatar"
-        accept="image/*"
-        value="<%= profile.avatar %>"
-      />
+      <label for="avatar"><b>Avatar (Profile Picture):</b></label>
+      <input class="formInput" id="avatar" type="file" name="avatar" accept="image/*" />
+      <br /><br />
 
-      <br />
-      <br />
+      <label for="description"><b>About Me:</b></label>
+      <textarea class="formInput" id="description" name="description" placeholder="Tell us about yourself..." rows="4"><%= profile.description %></textarea>
 
-      <textarea
-      class="formInput"
-      id="description"
-      name="description"
-      placeholder="Tell us about yourself..."
-      rows="4"
-    ><%= profile.description %></textarea>
-    
+      <br /><br />
 
-      <br />
-      <br />
+      <label for="location"><b>Location:</b></label>
+      <input class="formInput" id="location" type="text" name="location" placeholder="Your Location" value="<%= profile.location %>" />
 
-      <label for="location">
-        <b>Location:</b>
-      </label>
-      <input
-        class="formInput"
-        id="location"
-        type="text"
-        name="location"
-        placeholder="Your Location"
-        value="<%= profile.location %>"
-      />
+      <br /><br />
 
-      <br />
-      <br />
+      <label for="website"><b>Website:</b></label>
+      <input class="formInput" id="website" type="text" name="website" placeholder="Your Website" value="<%= profile.website %>" />
 
-      <label for="website">
-        <b>Website:</b>
-      </label>
-      <input
-        class="formInput"
-        id="website"
-        type="text"
-        name="website"
-        placeholder="Your Website"
-        value="<%= profile.website %>"
-      />
+      <br /><br />
 
-      <br />
-      <br />
+      <label><b>Social Media:</b></label>
+      <div class="social-media-inputs">
+        <% const socialMedia = ['facebook', 'twitter', 'linkedin', 'youtube', 'instagram', 'github', 'reddit', 'tiktok', 'discord', 'other']; %>
+        <% socialMedia.forEach(platform => { %>
+          <input class="formInput" type="text" name="social.<%= platform %>" placeholder="<%= platform.charAt(0).toUpperCase() + platform.slice(1) %>" value="<%= profile.social[platform] %>" />
+        <% }); %>
+      </div>
 
-      <label>
-        <b>Social Media:</b>
-      </label>
-      <input
-        class="formInput"
-        type="text"
-        name="social.facebook"
-        placeholder="Facebook"
-        value="<%= profile.social.facebook %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.twitter"
-        placeholder="Twitter"
-        value="<%= profile.social.twitter %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.linkedin"
-        placeholder="LinkedIn"
-        value="<%= profile.social.linkedin %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.youtube"
-        placeholder="YouTube"
-        value="<%= profile.social.youtube %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.instagram"
-        placeholder="Instagram"
-        value="<%= profile.social.instagram %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.github"
-        placeholder="GitHub"
-        value="<%= profile.social.github %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.reddit"
-        placeholder="Reddit"
-        value="<%= profile.social.reddit %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.tiktok"
-        placeholder="TikTok"
-        value="<%= profile.social.tiktok %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.discord"
-        placeholder="Discord"
-        value="<%= profile.social.discord %>"
-      />
-      <input
-        class="formInput"
-        type="text"
-        name="social.other"
-        placeholder="other"
-        value="<%= profile.social.other %>"
-      />
-      <br />
-      <br />
+      <br /><br />
 
-      <label>
-        <b>Skills:</b>
-      </label>
+      <label><b>Skills:</b></label>
+      <div class="skills-checkboxes">
+        <% categories.forEach(category => { %>
+          <label>
+            <input type="checkbox" name="skills" value="<%= category.value %>" <%if(profile.skills.includes(category.value)){%> checked <% } %> /> <%= category.label %>
+          </label>
+        <% }); %>
+      </div>
 
-      <% categories.forEach(category => { %>
-      <label>
-        <input
-          type="checkbox"
-          name="skills"
-          value="<%= category.value %>"
-          <%if(profile.skills.includes(category.value)){%>
-        checked
-        <% } %>
-         /> 
-         <%= category.label %>
-      </label>
-      <% }); %>
-
-      <br />
-      <br />
+      <br /><br />
 
       <button class="btn" type="submit">Update Profile</button>
     </form>

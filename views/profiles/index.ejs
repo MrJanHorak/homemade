@@ -1,36 +1,38 @@
-<%- include('../partials/html-head') %> <%- include('../partials/nav') %>
+<%- include('../partials/html-head') %>
+<link rel="stylesheet" href="/stylesheets/profiles/index.css" />
+<%- include('../partials/nav') %>
 
 <main>
   <div id="topSpaceBuffer"></div>
   <div class="indexContainer">
     <% profiles.forEach(profile => { %>
-    <a href="/profiles/<%= profile._id %>">
+    <a href="/profiles/<%= profile._id %>" class="profileLink">
       <div class="userProfileIndex">
         <% if (profile.avatar) { %>
         <img
-          class="card-img-top"
+          class="avatar-img"
           src="<%= profile.avatar %>"
           alt="<%= profile.name %>'s avatar"
-          width="100%"
         />
         <% } else { %>
         <img
-          class="card-img-top"
+          class="avatar-img"
           src="/images/icons/user.png"
           alt="A placeholder avatar"
-          width="100%"
         />
         <% } %>
-        <div id="userInfo">
+        <div class="user-info">
           <h2><%= profile.name %></h2>
-          <% let total=0 %> <% let profileI = `${profile._id}` %> <%
-          projects.forEach(project => { %> <% let pOwner = `${project.owner}` %>
-          <% if (pOwner===profileI && project.visible) { %> <% total+=1 %> <%}
-          %> <% })%>
-          <p><b>projects contributed: <%=total %></b></p>
-          <% let total2=0 %> <% let profileM = `${profile._id}` %>
+          <% let total = 0 %> <% let profileId = `${profile._id}` %> <%
+          projects.forEach(project => { %> <% let projectOwner =
+          `${project.owner}` %> <% if (projectOwner === profileId &&
+          project.visible) { %> <% total += 1 %> <% } %> <% }) %>
+          <p><b>Projects Contributed: <%= total %></b></p>
           <p>
-            <b>Joined: <%=profile.createdAt.toString().substring(0,15)%></b>
+            <b
+              >Joined: <%= profile.createdAt.toLocaleDateString("en-US", { year:
+              'numeric', month: 'long', day: 'numeric' }) %></b
+            >
           </p>
         </div>
       </div>

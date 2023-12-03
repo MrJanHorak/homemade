@@ -1,0 +1,36 @@
+.indexContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 20px;
+}
+
+.userProfileIndex {
+  width: 300px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.3s;
+  background-color: #fff;
+}
+
+.userProfileIndex:hover {
+  transform: scale(1.05);
+}
+
+.avatar-img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px 10px 0 0;
+}
+
+.user-info {
+  padding: 15px;
+}
+
+.profileLink {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Add any additional styling based on your design preferences */

@@ -1,0 +1,74 @@
+.userProfileContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.userProfileIndex {
+  width: 300px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.3s;
+  background-color: #fff;
+}
+
+.userProfileIndex:hover {
+  transform: scale(1.05);
+}
+
+.avatar-img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px 10px 0 0;
+}
+
+.user-info {
+  padding: 15px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  margin: 10px 0;
+  text-align: center;
+  text-decoration: none;
+  background-color: #3498db;
+  color: #fff;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+}
+
+.btn:hover {
+  background-color: #2980b9;
+}
+
+.section-headers {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+.projectIndexCard {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.projectIndexCard:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.projectPic {
+  width: 100%;
+  height: auto;
+  border-radius: 10px 10px 0 0;
+}
+
+.projectDescription {
+  padding: 10px;
+}
+
+/* Add any additional styling based on your design preferences */

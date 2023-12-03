@@ -13,7 +13,7 @@ form {
   text-align: center;
 }
 
-.info{
+.info {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -21,11 +21,15 @@ form {
   width: 100%;
 }
 
-.project-icons{
+.project-icons {
   height: 35px;
   width: auto;
   margin: 0 5px 0 5px;
-  }
+}
+
+.c-pic{
+  border-radius: 5px 30px 10px 0px;
+}
 
 #commentText {
   font-size: 1.5em;
@@ -55,11 +59,11 @@ form {
 #addProjectComment {
   width: 550px;
   height: auto;
-  margin: 7px;
+  margin: 20px auto 20px auto;
   border-radius: 4px;
   padding: 5px;
   background-color: rgba(97, 92, 85, 0.9);
-  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+  box-shadow: 15px 15px 30px hwb(0 6% 28%), -15px -5px 30px #a1c406;
   color: white;
   font-size: 1.5em;
   resize: none;
@@ -69,15 +73,15 @@ form {
 #ratingBox {
   width: 550px;
   height: auto;
-  margin: 5px;
   border: 1px solid black;
   border-radius: 4px;
   padding: 5px;
   background-color: rgba(0, 0, 0, 0.8);
-  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
+  box-shadow: 15px 15px 30px hwb(0 6% 28%), -15px -5px 30px #a1c406;
   color: white;
   font-size: 1.5em;
   text-align: center;
+  margin: 40px auto 40px auto;
 }
 
 #projectDetailView {
@@ -85,7 +89,8 @@ form {
   height: auto;
   border-radius: 0 30px 10px 30px;
   background: #e0e0e0;
-  box-shadow: 15px 15px 30px #bebebe, -15px -15px 30px #ffffff;
+  box-shadow: 15px 15px 30px hwb(0 6% 28%), -15px -15px 30px #a1c406;
+  margin-bottom: 40px;
 }
 
 #commentProfilePic {
@@ -115,11 +120,11 @@ form {
   margin-bottom: 12px;
 }
 
-#buildDescription{
+#buildDescription {
   padding: 0 8px 0 8px;
   font-size: 1.2em;
   font-family: Arial, Helvetica, sans-serif;
-  color: black ;
+  color: black;
 }
 
 .rating {
@@ -143,6 +148,15 @@ form {
 
 #buildInstructions {
   white-space: pre-line;
+}
+
+#projectIndexTitle{
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 8px 0 0 8px;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  color: black ;
 }
 
 .rating__result {

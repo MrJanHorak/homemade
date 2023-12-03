@@ -1,111 +1,57 @@
-p {
-  line-height: 15px;
+#newProject {
+  max-width: 800px;
+  margin: auto;
 }
 
-a {
-  text-decoration: none;
-  color: black;
-}
-
-textarea {
-  resize: none;
-  white-space: pre-wrap;
-}
-
-.btn {
-  border: none;
-  background-color: rgba(185, 181, 173, 0.6);
-  padding: 5px;
-  margin: 5px;
-  border-radius: 9px;
-  height: 35px;
-}
-
-.btn:hover {
-  background-color: rgba(179, 167, 145, 0.6);
-  color: white;
+.formInput {
+  width: 100%;
+  padding: 8px;
+  margin: 8px 0;
+  box-sizing: border-box;
 }
 
 .partialFormContainer {
   display: flex;
-  flex-direction: row;
   justify-content: space-between;
 }
 
-#topSpaceBuffer {
-  height: 40px;
+.btn {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  text-decoration: none;
+  display: inline-block;
+  border-radius: 5px;
 }
 
-#createProject {
-  width: 450px;
-  height: auto;
-  margin: 7px;
-  border: 1px solid rgb(201, 201, 201);
-  border-radius: 4px;
-  padding: 15px;
-  overflow: hidden;
-  background-color: rgba(253, 253, 253, 0.8);
-  box-shadow: 0 0 88px 0 rgba(0, 0, 0, 0.1607843137254902);
-  font-size: 1.5em;
+#materialsList, #toolsList, #buildInstructions, #external-link-container {
+  margin-top: 20px;
 }
 
-#number {
-  width: 3.5em;
+#add-materials-container,
+#add-tool-container,
+#add-links-container {
+  margin-top: 10px;
 }
 
-#buttonDiv {
-  display: flex;
+textarea {
+  width: 100%;
+  padding: 8px;
+  margin: 8px 0;
+  box-sizing: border-box;
+  resize: vertical;
 }
 
-@media only screen and (max-width: 560px) {
-  h1 {
-    margin-left: 15px;
-    font-size: 2.4rem;
-  }
+#projectPictures {
+  margin-top: 10px;
+}
 
-  textarea {
-    width: 365px;
-    height: 365px;
-  }
+#external-links-container {
+  margin-top: 20px;
+}
 
+@media (max-width: 600px) {
   .partialFormContainer {
-    display: flex;
     flex-direction: column;
-    justify-content: space-between;
-  }
-
-  .formInput {
-    width: 365px;
-  }
-
-  #topSpaceBuffer {
-    height: 40px;
-  }
-
-  #createRecipe {
-    width: 400px;
-  }
-}
-
-@media only screen and (max-width: 476px) {
-  h1 {
-    margin-left: 12px;
-    font-size: 2.2rem;
-  }
-
-  textarea {
-    width: 305px;
-  }
-
-  .formInput {
-    width: 305px;
-  }
-
-  #topSpaceBuffer {
-    height: 40px;
-  }
-
-  #createProject {
-    width: 340px;
   }
 }

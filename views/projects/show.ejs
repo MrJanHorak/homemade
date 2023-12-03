@@ -18,7 +18,7 @@
         <div class="carousel-inner">
           <% project.buildPictures.forEach((picture, index) => { %>
             <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-              <img src="<%= picture %>" class="d-block w-100" alt="project build pic <%= index + 1 %>">
+              <img src="<%= picture %>" class="c-pic d-block w-100" alt="project build pic <%= index + 1 %>">
             </div>
           <% }) %>
         </div>
@@ -35,7 +35,7 @@
       <% } else { %>
       <img
         id="projectIndexImage"
-        class="card-img-top"
+        class="card-img-top c-pic"
         src="<%=project.buildPictures[0]%>"
         alt="picture of project"
       />

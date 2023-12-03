@@ -1,85 +1,79 @@
-<%- include('../partials/html-head') %> <%- include('../partials/nav') %>
+<%- include('../partials/html-head') %> 
+<%- include('../partials/nav') %>
 <link rel="stylesheet" href="/stylesheets/profiles/show.css" />
 
 <main>
   <div id="topSpaceBuffer"></div>
-  <% if (profile.avatar) { %>
-  <div class="userProfileIndex">
-    <% if (profile.avatar) { %>
-    <img
-      class="card-img-top"
-      src="<%= profile.avatar %>"
-      alt="<%= profile.name %>'s avatar"
-      width="100%"
-    />
-    <% } else { %>
-    <img
-      class="card-img-top"
-      src="/images/icons/user.png"
-      alt="A placeholder avatar"
-      width="100%"
-    />
-    <% } %>
-    <div id="userInfo">
-      <br />
-      <br />
-      <h2><%= profile.name %></h2>
-      <% let total=0 %> <% let profileI = `${profile._id}` %> <%
-      projects.forEach(project => { %> <% let pOwner = `${project.owner}` %> <%
-      if (pOwner===profileI && project.visible) { %> <% total+=1 %> <%} %> <%
-      })%>
-      <p><b>Projects contributed: <%=total %></b></p>
-      <p><b>Joined: <%=profile.createdAt.toString().substring(0,15)%></b></p>
-    </div>
-  </div>
-  
-  <a href="/profiles/<%=user.profile.id%>/edit"><button>Update Your Profile</button></a>
 
+  <% if (profile.avatar) { %>
+    <div class="userProfileContainer">
+      <div class="userProfileIndex">
+        <img
+          class="avatar-img"
+          src="<%= profile.avatar %>"
+          alt="<%= profile.name %>'s avatar"
+        />
+        <div class="user-info">
+          <h2><%= profile.name %></h2>
+          <% let total = 0 %> 
+          <% let profileId = `${profile._id}` %> 
+          <% projects.forEach(project => { %> 
+            <% let projectOwner = `${project.owner}` %> 
+            <% if (projectOwner === profileId && project.visible) { %> 
+              <% total += 1 %> 
+            <% } %> 
+          <% }) %>
+          <p><b>Projects Contributed: <%= total %></b></p>
+          <p><b>Joined: <%= profile.createdAt.toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' }) %></b></p>
+        </div>
+      </div>
+      <a href="/profiles/<%= user.profile.id %>/edit" class="btn">Update Your Profile</a>
+    </div>
   <% } %>
+
   <h1 class="section-headers">
     Projects added by <%= isSelf ? "you" : profile.name %>
   </h1>
-  <br />
   <div id="projectsIndexView">
-    <% let projectInvisible=0 %> <% let projectTotal=0 %> <%
-    projects.forEach(project =>{ %> <% if (project.visible === false) {
-    projectInvisible+=1 } %> <% if (project.visible) { %>
-    <div id="projectIndexCard">
-      <% if (project.owner.equals(profile._id)) { %> <% projectTotal+=1 %>
-      <div id="profileShowViewButtons">
-        <% if(isSelf) { %>
-        <a href="/projects/<%= project._id %>/edit">
-          <input class="btn" value="Edit project" type="submit" />
-        </a>
-        <form action="/projects/<%= project._id %>?_method=DELETE" method="POST">
-          <button class="btn" type="submit">X</button>
-        </form>
-        <% } %>
-      </div>
-      <a href="/projects/<%= project._id %>">
-        <h2><%=project.title%></h2>
-        <% if (project.buildPictures.length > 0) {%>
-        <img
-          src="<%=project.buildPictures[0]%>"
-          id="projectPic"
-          alt="Picture of prepared food"
-        />
-        <% } %>
-        <b>Build Time:</b> <%=project.buildTime%>
-        <b>Difficulty:</b> <%=project.difficulty%> Hours<br />
-        <b>Cost:</b> <%=project.estimatedCost%><br />
-        <div id="projectDescription">
-          <b>Description:</b> <%=project.description%><br /><br />
+    <% let projectTotal = 0 %> 
+    <% projects.forEach(project =>{ %> 
+      <% if (project.visible) { %>
+        <div class="projectIndexCard">
+          <% if (project.owner.equals(profile._id)) { %> 
+            <% projectTotal += 1 %>
+            <div class="profileShowViewButtons">
+              <% if(isSelf) { %>
+                <a href="/projects/<%= project._id %>/edit" class="btn">Edit project</a>
+                <form action="/projects/<%= project._id %>?_method=DELETE" method="POST">
+                  <button class="btn" type="submit">Delete</button>
+                </form>
+              <% } %>
+            </div>
+            <a href="/projects/<%= project._id %>">
+              <h2><%= project.title %></h2>
+              <% if (project.buildPictures.length > 0) { %>
+                <img
+                  src="<%= project.buildPictures[0] %>"
+                  class="projectPic"
+                  alt="Picture of prepared food"
+                />
+              <% } %>
+              <p><b>Build Time:</b> <%= project.buildTime %></p>
+              <p><b>Difficulty:</b> <%= project.difficulty %> Hours</p>
+              <p><b>Cost:</b> <%= project.estimatedCost %></p>
+              <div class="projectDescription">
+                <p><b>Description:</b> <%= project.description %></p>
+              </div>
+            </a>
+          <% } %>
         </div>
-      </a>
-    </div>
-    <%}%> <%}})%> <% if (projectTotal===0) { %>
-    <h2>This user has not added any Projects yet.</h2>
+      <% } %>
+    <% }) %>
+    <% if (projectTotal === 0) { %>
+      <h2>This user has not added any projects yet.</h2>
     <% } %>
   </div>
 
-  <br />
-  <br />
   <div id="bottomSpaceBuffer"></div>
-  <%-include('../partials/footer') %>
+  <%- include('../partials/footer') %>
 </main>

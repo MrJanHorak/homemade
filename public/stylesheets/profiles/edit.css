@@ -1,0 +1,50 @@
+#editProfile {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.formInput {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+textarea.formInput {
+  resize: vertical;
+}
+
+.social-media-inputs {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.social-media-inputs input {
+  flex: 1;
+  margin-right: 5px;
+}
+
+.skills-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.skills-checkboxes label {
+  margin-right: 20px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  margin: 10px 0;
+  text-align: center;
+  text-decoration: none;
+  background-color: #3498db;
+  color: #fff;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background-color: #2980b9;
+}

@@ -6,6 +6,10 @@ main {
   min-height: 99vh;
 }
 
+.c-pic{
+  border-radius: 0 30px 10px 30px;
+}
+
 .info{
   display: flex;
   flex-direction: row;
@@ -32,7 +36,7 @@ margin: 0 5px 0 5px;
 }
 
 #topSpaceBuffer {
-  height: 100px;
+  height: 70px;
 }
 
 #projectsIndexView a {
@@ -41,15 +45,30 @@ margin: 0 5px 0 5px;
 }
 
 #projectIndexCard {
+  position: relative;
   width: 490px;
   height: auto;
   border-radius: 0 30px 10px 30px;
   background: #e0e0e0;
-  box-shadow: 15px 15px 30px #bebebe, -15px -15px 30px #ffffff;
+  box-shadow: 15px 15px 30px hwb(0 6% 28%), -15px -15px 30px #a1c406;
+  margin: 40px 0 40px 0;
 }
 
 #projectIndexCard:hover {
   background-color:white;
+}
+
+#projectIndexTitle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 8px;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  border-radius: 0 30px 10px 10px;
+  max-width: 60%; 
 }
 
 #projectIndexCard h2{
@@ -59,6 +78,17 @@ margin: 0 5px 0 5px;
   font-family: Arial, Helvetica, sans-serif;
   color: black ;
 }
+
+.projectCardContainer {
+  position: relative;
+  min-height: 100px;
+  margin: 40px 0;
+}
+
+#projectIndexCard:hover #projectIndexTitle {
+  background-color: white;
+}
+
 
 #project-time-difficulty {
   margin-top: 12px;
