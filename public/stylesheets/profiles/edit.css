@@ -1,8 +1,3 @@
-#editProfile {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
 .formInput {
   width: 100%;
   padding: 8px;
@@ -47,4 +42,27 @@ textarea.formInput {
 
 .btn:hover {
   background-color: #2980b9;
+}
+
+#topSpaceBuffer{
+  height: 100px;
+}
+
+#editProfile {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+#update-profile-pic-container {
+  margin-top: 25px;
+  display: flex;
+  flex-direction: row;
+  align-items:flex-end;
+}
+
+#current-profile-pic {
+  width: 100px;
+  height: 100px;
+  border-radius: 25px;
+  margin-right: 20px;
 }

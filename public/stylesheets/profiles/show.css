@@ -102,7 +102,7 @@
   font-weight: bold;
   font-family: Arial, Helvetica, sans-serif;
   border-radius: 0 30px 10px 10px;
-  max-width: 60%; 
+  max-width: 100%; 
 }
 
 #projectIndexCard h2{
@@ -185,5 +185,6 @@ width: auto;
 margin: 0 5px 0 5px;
 }
 
-
-/* Add any additional styling based on your design preferences */
+#topSpaceBuffer{
+  height: 100px;
+}

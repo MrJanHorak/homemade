@@ -1,34 +1,67 @@
-<%- include('../partials/html-head') %> 
-<%- include('../partials/nav') %>
+<%- include('../partials/html-head') %> <%- include('../partials/nav') %>
 <link rel="stylesheet" href="/stylesheets/profiles/show.css" />
 
 <main>
   <div id="topSpaceBuffer"></div>
 
   <% if (profile.avatar) { %>
-    <div class="userProfileContainer">
-      <div class="userProfileIndex">
-        <img
-          class="avatar-img"
-          src="<%= profile.avatar %>"
-          alt="<%= profile.name %>'s avatar"
-        />
-        <div class="user-info">
-          <h2><%= profile.name %></h2>
-          <% let total = 0 %> 
-          <% let profileId = `${profile._id}` %> 
-          <% projects.forEach(project => { %> 
-            <% let projectOwner = `${project.owner}` %> 
-            <% if (projectOwner === profileId && project.visible) { %> 
-              <% total += 1 %> 
-            <% } %> 
-          <% }) %>
-          <p><b>Projects Contributed: <%= total %></b></p>
-          <p><b>Joined: <%= profile.createdAt.toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' }) %></b></p>
+  <div class="userProfileContainer">
+    <div class="userProfileIndex">
+      <img
+        class="avatar-img"
+        src="<%= profile.avatar %>"
+        alt="<%= profile.name %>'s avatar"
+      />
+      <div class="user-info">
+        <h2><%= profile.name %></h2>
+        <% let total = 0 %> <% let profileId = `${profile._id}` %> <%
+        projects.forEach(project => { %> <% let projectOwner =
+        `${project.owner}` %> <% if (projectOwner === profileId &&
+        project.visible) { %> <% total += 1 %> <% } %> <% }) %>
+        <p><b>Projects Contributed: <%= total %></b></p>
+        <p>
+          <b
+            >Joined: <%= profile.createdAt.toLocaleDateString("en-US", { year:
+            'numeric', month: 'long', day: 'numeric' }) %></b
+          >
+        </p>
+
+        <!-- Display additional information here -->
+        <% if (profile.location) { %>
+        <p><b>Location: <%= profile.location %></b></p>
+        <% } %> <% if (profile.website) { %>
+        <p>
+          <b
+            >Website:
+            <a href="<%= profile.website %>" target="_blank"
+              ><%= profile.website %></a
+            ></b
+          >
+        </p>
+        <% } %>
+
+        <!-- Display social media links -->
+        <% const socialMediaPlatforms = ['Facebook', 'Twitter', 'LinkedIn',
+        'YouTube', 'Instagram', 'GitHub', 'Reddit', 'TikTok', 'Discord',
+        'Other']; %>
+        <div class="social-media">
+          <% socialMediaPlatforms.forEach(platform => { %> <% const platformName
+          = platform.toLowerCase(); %> <% const platformValue =
+          profile.social[platformName]; %> <% if (platformValue) { %>
+          <a href="<%= platformValue %>" target="_blank"><%= platform %></a>
+          <% } %> <% }); %>
         </div>
+
+        <!-- Display skills -->
+        <% if (profile.skills.length > 0) { %>
+        <p><b>Skills: <%= profile.skills.join(', ') %></b></p>
+        <% } %>
       </div>
-      <a href="/profiles/<%= user.profile.id %>/edit" class="btn">Update Your Profile</a>
     </div>
+    <a href="/profiles/<%= user.profile.id %>/edit" class="btn"
+      >Update Your Profile</a
+    >
+  </div>
   <% } %>
 
   <h1 class="section-headers">

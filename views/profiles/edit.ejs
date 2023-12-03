@@ -1,8 +1,9 @@
 <%- include('../partials/html-head') %>
-<link rel="stylesheet" href="/stylesheets/editProfile.css" />
+<link rel="stylesheet" href="/stylesheets/profiles/edit.css" />
 <%- include('../partials/nav') %>
 
 <main>
+  <div id="topSpaceBuffer"></div>
   <div id="editProfile">
     <h1>Edit Profile</h1>
 
@@ -11,9 +12,12 @@
       <input class="formInput" id="name" type="text" name="name" placeholder="Your Name" value="<%= profile.name %>" required />
 
       <br /><br />
-
+      
       <label for="avatar"><b>Avatar (Profile Picture):</b></label>
+      <div id="update-profile-pic-container">
+      <img id="current-profile-pic" src="<%= profile.avatar%>" alt="current profile pic">
       <input class="formInput" id="avatar" type="file" name="avatar" accept="image/*" />
+    </div>
       <br /><br />
 
       <label for="description"><b>About Me:</b></label>

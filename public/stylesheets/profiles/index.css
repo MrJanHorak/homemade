@@ -33,4 +33,6 @@
   color: inherit;
 }
 
-/* Add any additional styling based on your design preferences */
+#topSpaceBuffer{
+  height: 100px;
+}
