@@ -71,4 +71,119 @@
   padding: 10px;
 }
 
+#projectsIndexView {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+#projectIndexCard {
+  position: relative;
+  width: 290px;
+  height: auto;
+  border-radius: 0 30px 10px 30px;
+  background: #e0e0e0;
+  box-shadow: 15px 15px 30px hwb(0 6% 28%), -15px -15px 30px #a1c406;
+  margin: 40px 20px 40px 20px;
+}
+
+#projectIndexCard:hover {
+  background-color:white;
+}
+
+#projectIndexTitle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 8px;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  border-radius: 0 30px 10px 10px;
+  max-width: 60%; 
+}
+
+#projectIndexCard h2{
+  padding: 8px 0 0 8px;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  color: black ;
+}
+
+.projectCardContainer {
+  position: relative;
+  min-height: 100px;
+  margin: 40px 0;
+}
+
+#projectIndexCard:hover #projectIndexTitle {
+  background-color: white;
+}
+
+
+#project-time-difficulty {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 0 8px 0 8px;
+}
+
+#projectPic {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+}
+
+#categories {
+  margin: 12px;
+}
+
+#ownerAvatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin: 15px 5px 5px 5px;
+}
+
+#buildDescription{
+  padding: 0 8px 0 8px;
+  font-size: 1.2em;
+  font-family: Arial, Helvetica, sans-serif;
+  color: black ;
+}
+
+.c-pic{
+  border-radius: 0 30px 10px 30px;
+}
+
+.info{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-items: center;
+  width: 100%;
+}
+
+.cat-pill {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  background-color: #e5d14f;
+  border-radius: 10px;
+  padding: 5px 10px 5px 10px;
+  margin: 0 5px 0 5px;
+}
+
+.project-icons{
+height: 35px;
+width: auto;
+margin: 0 5px 0 5px;
+}
+
+
 /* Add any additional styling based on your design preferences */

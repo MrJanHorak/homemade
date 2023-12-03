@@ -1,116 +1,11 @@
 <%- include('./partials/html-head') %> <%- include('./partials/nav') %>
 <link rel="stylesheet" href="/stylesheets/projects/index.css" />
 
-
 <main>
   <div id="topSpaceBuffer"></div>
 
   <div id="projectsIndexView">
-    <% projects.forEach(project =>{ %>
-    <a href="/projects/<%= project._id %>">
-      <div class="projectCardContainer">
-      <div id="projectIndexCard">
-        <% if (project.buildPictures.length > 1) { %>
-          <div id="carouselExampleIndicators" class="carousel slide" data-ride="carousel">
-            <div class="carousel-indicators">
-              <% project.buildPictures.forEach((_, index) => { %>
-                <button type="button" data-target="#carouselExampleIndicators" data-slide-to="<%= index %>" <%= index === 0 ? 'class="active"' : '' %> aria-label="Slide <%= index + 1 %>"></button>
-              <% }) %>
-            </div>
-            <div class="carousel-inner">
-              <% project.buildPictures.forEach((picture, index) => { %>
-                <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                  <img src="<%= picture %>" class="c-pic d-block w-100" alt="project build pic <%= index + 1 %>">
-                </div>
-              <% }) %>
-            </div>
-            <button class="carousel-control-prev" type="button" data-target="#carouselExampleIndicators" data-slide="prev">
-              <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-              <span class="sr-only">Previous</span>
-            </button>
-            <button class="carousel-control-next" type="button" data-target="#carouselExampleIndicators" data-slide="next">
-              <span class="carousel-control-next-icon" aria-hidden="true"></span>
-              <span class="sr-only">Next</span>
-            </button>
-          </div>
-          
-          <% } else {%>
-          <img
-            id="projectIndexImage"
-            class="card-img-top c-pic"
-            src="<%=project.buildPictures[0]%>"
-            alt="picture of project"
-          />
-          <% } %>
-          <div id="projectIndexTitle">
-            <h2><%=project.title%></h2>
-          </div>
-        <div id="project-time-difficulty">
-          <div class="info">
-            <img
-              class="project-icons"
-              src="/images/projects/spirit-level-svgrepo-com.svg"
-              alt="difficulty level"
-            />
-            <%=project.difficulty%>/10
-          </div>
-          <div class="info">
-            <img
-              class="project-icons"
-              src="/images/projects/time-lapse-2-svgrepo-com.svg"
-              alt="build time"
-            />
-            <%=project.buildTime%> hours
-          </div>
-          <div class="info">
-            <img
-              class="project-icons"
-              src="/images/projects/like-svgrepo-com.svg"
-              alt="likes"
-            />
-            <%=project.likes%>
-          </div>
-          <div class="info">
-            <img
-              class="project-icons"
-              src="/images/projects/rating-svgrepo-com.svg"
-              alt="rating"
-            />
-            <%=project.averageRating%>
-          </div>
-        </div>
-        <div class="info" id="categories">
-          <img
-            class="project-icons"
-            src="/images/projects/category-2-svgrepo-com.svg"
-            alt="categories"
-          />
-          <% project.categories.forEach(category => { %>
-          <span class="cat-pill"><%=category%></span>
-          <% }) %>
-          <br />
-        </div>
-
-        <div class="info" id="buildDescription">
-          <img
-            class="project-icons"
-            src="/images/projects/description-svgrepo-com.svg"
-            alt="description"
-          />
-          <%=project.description%>
-        </div>
-        <div class="info">
-          <img
-            id="ownerAvatar"
-            src="<%=project.ownerAvatar%>"
-            alt="picture of
-        project owner"
-          /><%=project.ownerName%>
-        </div>
-      </div>
-      </div>
-    </a>
-    <%})%>
+    <%- include('./partials/projectIndexPartial', { projects: projects}) %>
   </div>
 
   <%- include('./partials/footer') %>

@@ -35,43 +35,7 @@
     Projects added by <%= isSelf ? "you" : profile.name %>
   </h1>
   <div id="projectsIndexView">
-    <% let projectTotal = 0 %> 
-    <% projects.forEach(project =>{ %> 
-      <% if (project.visible) { %>
-        <div class="projectIndexCard">
-          <% if (project.owner.equals(profile._id)) { %> 
-            <% projectTotal += 1 %>
-            <div class="profileShowViewButtons">
-              <% if(isSelf) { %>
-                <a href="/projects/<%= project._id %>/edit" class="btn">Edit project</a>
-                <form action="/projects/<%= project._id %>?_method=DELETE" method="POST">
-                  <button class="btn" type="submit">Delete</button>
-                </form>
-              <% } %>
-            </div>
-            <a href="/projects/<%= project._id %>">
-              <h2><%= project.title %></h2>
-              <% if (project.buildPictures.length > 0) { %>
-                <img
-                  src="<%= project.buildPictures[0] %>"
-                  class="projectPic"
-                  alt="Picture of prepared food"
-                />
-              <% } %>
-              <p><b>Build Time:</b> <%= project.buildTime %></p>
-              <p><b>Difficulty:</b> <%= project.difficulty %> Hours</p>
-              <p><b>Cost:</b> <%= project.estimatedCost %></p>
-              <div class="projectDescription">
-                <p><b>Description:</b> <%= project.description %></p>
-              </div>
-            </a>
-          <% } %>
-        </div>
-      <% } %>
-    <% }) %>
-    <% if (projectTotal === 0) { %>
-      <h2>This user has not added any projects yet.</h2>
-    <% } %>
+    <%- include('../partials/projectIndexPartial', { projects: projects }) %>
   </div>
 
   <div id="bottomSpaceBuffer"></div>
