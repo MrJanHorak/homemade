@@ -1,0 +1,45 @@
+<% layout('layouts/layout') -%>
+<div class="chat-container">
+  <!-- Left Sidebar: List of Chats -->
+  <div class="chat-sidebar">
+    <h2>Chats</h2>
+    <ul class="chat-list">
+      <% chats.forEach(chat => { %>
+        <li>
+          <a href="#" onclick="loadChat('<%= chat._id %>')">
+            <%= chat.user1.name %> and <%= chat.user2.name %>
+          </a>
+        </li>
+      <% }); %>
+    </ul>
+  </div>
+
+  <!-- Right Content: Chat History and Input -->
+  <div class="chat-content">
+    <div class="chat-header">
+      <h2>Chat with <%= currentChat.user1.name %> and <%= currentChat.user2.name %></h2>
+    </div>
+    <div class="chat-history" id="chat-history">
+      <!-- Chat history will be loaded here -->
+    </div>
+    <div class="chat-input">
+      <textarea id="message-input" placeholder="Type your message"></textarea>
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Function to load chat history for a specific chat
+  function loadChat(chatId) {
+    // AJAX request or Socket.IO to load chat history and update #chat-history
+    // Example: $.get(`/chats/${chatId}`, data => $('#chat-history').html(data));
+  }
+
+  // Function to send a message
+  function sendMessage() {
+    const message = $('#message-input').val();
+    // AJAX request or Socket.IO to send the message
+    // Example: $.post('/sendMessage', { chatId: currentChat._id, message });
+  }
+</script>

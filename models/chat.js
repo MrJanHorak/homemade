@@ -1,6 +1,4 @@
-// creating a schema for a socketIo chat between two users
-// this is a one to one chat
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const Schema = mongoose.Schema;
 
@@ -23,4 +21,5 @@ const chatSchema = new Schema(
 );
 
 const Chat = mongoose.model('Chat', chatSchema);
-module.exports = Chat;
+
+export { Chat };
