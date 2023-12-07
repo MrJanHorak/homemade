@@ -17,6 +17,8 @@ const saveMessageToDatabase = async (chatId, user, message) => {
 
 // get all chats for a specific user
 const getChats = async (req, res, next) => {
+  console.log('getChats');
+  console.log(req.user.profile)
   try {
     const user = req.user;
     const chats = await Chat.find({
@@ -24,7 +26,7 @@ const getChats = async (req, res, next) => {
     });
 
     // Example: Render chats in an EJS view
-    res.render('chat/chats', { chats, user });
+    res.render('chats/index', { title:'chats', chats, user });
   } catch (error) {
     next(error);
   }
@@ -86,9 +88,13 @@ const sendTyping = async (req, res, next) => {
 
 // Example: Create a new chat
 const createChat = async (req, res, next) => {
+  console.log('createChat')
 try {
   const user1 = req.user;
+  console.log(user1)
   const user2Id = req.body.user2;
+  console.log(user2Id)
+
 
   // Example: Check if a chat already exists with these users
   const existingChat = await Chat.findOne({

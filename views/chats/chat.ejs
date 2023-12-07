@@ -1,0 +1,57 @@
+//ejs view for a single chat between two users
+<!-- Path: views/chats/chat.ejs -->
+<%- include('../partials/html-head') %>
+
+<%- include('../partials/nav') %>
+<link rel="stylesheet" href="/stylesheets/chats/chat.css" />
+
+<main>
+  
+  <div id="topSpaceBuffer"></div>
+
+  <div class="chat-container">
+
+    <!-- Left Sidebar: List of Chats -->
+    <div class="chat-sidebar">
+
+      <ul class="chat-list">
+        <% chats.forEach(chat => { %>
+          <li>
+            <a href="#" onclick="loadChat('<%= chat._id %>')">
+              <%= chat.user1.name %> and <%= chat.user2.name %>
+            </a>
+          </li>
+        <% }); %>
+      </ul>
+
+    </div>
+
+    <!-- Right Content: Chat History and Input -->
+    <div class="chat-content">
+
+      <div id="chat-history"></div>
+
+      <div class="chat-input">
+        <input id="message-input" type="text" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // Function to send chat message to sockert.io using es6 template literals an no jQuery at all
+    function sendMessage() {
+      const message = document.getElementById('message-input').value;
+      socket.emit('chat message', `${message}`);
+      document.getElementById('message-input').value = '';
+    }
+
+    // Function to recieve a chat message from socket.io using es6 template literals an no jQuery at all
+
+  
+
+    
+
+  </script>

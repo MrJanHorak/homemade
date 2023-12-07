@@ -26,9 +26,8 @@
           >
         </p>
 
-        <!-- Display additional information here -->
         <form action="/chats" method="post">
-          <input type="hidden" name="user2" value="<%= profile.user._id %>" />
+          <input type="hidden" name="user2" value="<%= profile._id %>" />
           <button type="submit" class="btn btn-primary">Contact User</button>
         </form>
         <% if (profile.location) { %>

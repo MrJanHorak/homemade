@@ -26,31 +26,7 @@ const io = new Server(server);
 
 io.on('connection', (socket) => {
   console.log('a user connected to socket.io', socket.id);
-
-  const isAuthenticated = socket.handshake.session && socket.handshake.session.userId;
-
-  if (isAuthenticated) {
-    // Access user-specific information from the session
-    const userId = socket.handshake.session.userId;
-
-    // Associate the socket with the user ID
-    socket.join(userId);
-
-    socket.on('retrieveUnreadMessages', async () => {
-      const chats = await Chat.find({
-        $or: [{ user1: userId }, { user2: userId }],
-        'messages.read': false,
-      });
-
-      chats.forEach((chat) => {
-        const unreadMessages = chat.messages.filter((msg) => !msg.read);
-        socket.emit('unreadMessages', {
-          chatId: chat._id,
-          messages: unreadMessages,
-        });
-      });
-    });
-
+ 
     socket.on('disconnect', () => {
       console.log('user disconnected');
     });
@@ -70,7 +46,7 @@ io.on('connection', (socket) => {
       io.emit('stop typing', msg);
     });
   }
-});
+);
 
 const onError = (error) => {
   if (error.syscall !== 'listen') {

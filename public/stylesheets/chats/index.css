@@ -50,3 +50,7 @@ button {
   padding: 10px;
   cursor: pointer;
 }
+
+#topSpaceBuffer{
+  height: 100px;
+}

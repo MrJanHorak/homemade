@@ -1,4 +1,8 @@
-<% layout('layouts/layout') -%>
+<%- include('../partials/html-head') %>
+<%- include('../partials/nav') %>
+<link rel="stylesheet" href="/stylesheets/chats/index.css" />
+<main>
+<div id="topSpaceBuffer"></div>
 <div class="chat-container">
   <!-- Left Sidebar: List of Chats -->
   <div class="chat-sidebar">
@@ -16,17 +20,14 @@
 
   <!-- Right Content: Chat History and Input -->
   <div class="chat-content">
-    <div class="chat-header">
-      <h2>Chat with <%= currentChat.user1.name %> and <%= currentChat.user2.name %></h2>
-    </div>
-    <div class="chat-history" id="chat-history">
-      <!-- Chat history will be loaded here -->
-    </div>
+    <div id="chat-history"></div>
     <div class="chat-input">
-      <textarea id="message-input" placeholder="Type your message"></textarea>
+      <input id="message-input" type="text" placeholder="Type a message..." />
       <button onclick="sendMessage()">Send</button>
     </div>
-  </div>
+
+ 
+ 
 </div>
 
 <script>
@@ -43,3 +44,6 @@
     // Example: $.post('/sendMessage', { chatId: currentChat._id, message });
   }
 </script>
+<%- include('../partials/footer') %>
+</main>
+
