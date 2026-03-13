@@ -14,6 +14,7 @@ router.get('/session/current', apiCtrl.getSession);
 router.get('/projects', apiCtrl.getProjects);
 router.post('/projects', isApiLoggedIn, upload, apiCtrl.createProject);
 router.get('/projects/:id', apiCtrl.getProject);
+router.put('/projects/:id', isApiLoggedIn, upload, apiCtrl.updateProject);
 router.post('/projects/:id/comments', isApiLoggedIn, apiCtrl.addProjectComment);
 
 router.get('/profiles', apiCtrl.getProfiles);

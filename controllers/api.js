@@ -158,6 +158,63 @@ const createProject = async (req, res) => {
   });
 };
 
+const updateProject = async (req, res) => {
+  const project = await Project.findById(req.params.id).exec();
+
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  if (!project.owner?.equals(req.user.profile._id)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const title = req.body.title?.trim();
+  const description = req.body.description?.trim();
+  const categories = cleanStringArray(req.body.categories);
+  const buildInstructions = cleanStringArray(req.body.buildInstructions);
+
+  if (
+    !title ||
+    !description ||
+    !categories.length ||
+    !buildInstructions.length
+  ) {
+    res.status(400).json({
+      error:
+        'Title, description, at least one category, and at least one build instruction are required',
+    });
+    return;
+  }
+
+  let buildPictures = project.buildPictures || [];
+  if (req.files?.length) {
+    const uploadedPictures = await projectPicstoS3(req.files);
+    buildPictures = [...buildPictures, ...uploadedPictures];
+  }
+
+  project.title = title;
+  project.description = description;
+  project.categories = categories;
+  project.buildInstructions = buildInstructions;
+  project.materialsNeeded = cleanStringArray(req.body.materialsNeeded);
+  project.toolsNeeded = cleanStringArray(req.body.toolsNeeded);
+  project.externalLinks = cleanStringArray(req.body.externalLinks);
+  project.buildPictures = buildPictures;
+  project.buildTime = parseOptionalNumber(req.body.buildTime);
+  project.difficulty = parseOptionalNumber(req.body.difficulty);
+  project.estimatedCost = parseOptionalNumber(req.body.estimatedCost);
+  project.visible = req.body.visible !== 'false';
+
+  await project.save();
+
+  res.json({
+    project: serializeProject(project, { includeComments: true }),
+  });
+};
+
 const addProjectComment = async (req, res) => {
   const project = await Project.findById(req.params.id).exec();
 
@@ -425,5 +482,6 @@ export {
   getSession,
   healthcheck,
   searchProjects,
+  updateProject,
   updateProfile,
 };

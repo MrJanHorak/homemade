@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import CommentForm from './comment-form';
+import ProjectActions from './project-actions';
 import { fetchApi } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,8 @@ const ProjectDetailPage = async ({ params }) => {
               </span>
             ))}
           </div>
+
+          <ProjectActions projectId={project.id} ownerId={project.owner} />
         </div>
       </section>
 
