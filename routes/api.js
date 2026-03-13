@@ -31,5 +31,6 @@ router.get('/search', apiCtrl.searchProjects);
 router.get('/chats', isApiLoggedIn, apiCtrl.getChats);
 router.get('/chats/:chatId', isApiLoggedIn, apiCtrl.getChat);
 router.post('/chats', isApiLoggedIn, apiCtrl.createChat);
+router.post('/chats/:chatId/messages', isApiLoggedIn, apiCtrl.addChatMessage);
 
 export { router };

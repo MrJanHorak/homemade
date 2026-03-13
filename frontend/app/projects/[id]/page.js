@@ -18,7 +18,9 @@ const formatDate = (value) => {
 };
 
 const ProjectDetailPage = async ({ params }) => {
-  const response = await fetchApi(`/api/projects/${params.id}`, {
+  const { id } = await params;
+
+  const response = await fetchApi(`/api/projects/${id}`, {
     cache: 'no-store',
   });
 

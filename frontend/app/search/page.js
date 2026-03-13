@@ -4,8 +4,8 @@ import { getJson } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 
 const SearchPage = async ({ searchParams }) => {
-  const query =
-    typeof searchParams.query === 'string' ? searchParams.query : '';
+  const params = await searchParams;
+  const query = typeof params.query === 'string' ? params.query : '';
   const { results } = await getJson(
     `/api/search?query=${encodeURIComponent(query)}`,
     {

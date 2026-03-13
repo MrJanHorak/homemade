@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import StartChatButton from './start-chat-button';
 import ProjectCard from '@/components/project-card';
-import { fetchApi, buildUrl } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,9 @@ const formatDate = (value) => {
 };
 
 const ProfileDetailPage = async ({ params }) => {
-  const response = await fetchApi(`/api/profiles/${params.id}`, {
+  const { id } = await params;
+
+  const response = await fetchApi(`/api/profiles/${id}`, {
     cache: 'no-store',
   });
 
@@ -101,16 +104,7 @@ const ProfileDetailPage = async ({ params }) => {
               Edit profile
             </Link>
           ) : (
-            <form
-              method='post'
-              action={buildUrl('/chats')}
-              className='inline-form'
-            >
-              <input type='hidden' name='user2' value={profile.id} />
-              <button type='submit' className='button'>
-                Contact maker
-              </button>
-            </form>
+            <StartChatButton profileId={profile.id} />
           )}
 
           <div className='social-links'>

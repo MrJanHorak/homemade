@@ -465,12 +465,60 @@ const createChat = async (req, res) => {
   });
 };
 
+const addChatMessage = async (req, res) => {
+  const chat = await Chat.findById(req.params.chatId).exec();
+
+  if (!chat) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
+  const currentProfileId = req.user.profile._id;
+  const isParticipant =
+    chat.user1?.equals(currentProfileId) ||
+    chat.user2?.equals(currentProfileId);
+
+  if (!isParticipant) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const message = req.body.message?.trim();
+
+  if (!message) {
+    res.status(400).json({ error: 'Message is required' });
+    return;
+  }
+
+  chat.messages.push({
+    user: currentProfileId,
+    message,
+    timestamp: new Date(),
+  });
+
+  await chat.save();
+
+  const populatedChat = await Chat.findById(chat._id)
+    .populate('user1', 'name avatar')
+    .populate('user2', 'name avatar')
+    .populate({
+      path: 'messages.user',
+      select: 'name avatar',
+    })
+    .exec();
+
+  res.status(201).json({
+    chat: serializeChat(populatedChat, currentProfileId.toString()),
+  });
+};
+
 const healthcheck = (req, res) => {
   res.json({ ok: true });
 };
 
 export {
   addProjectComment,
+  addChatMessage,
   createChat,
   createProject,
   getChat,

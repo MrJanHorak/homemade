@@ -88,9 +88,9 @@ const AuthControls = () => {
         <Link href='/projects/new' className='button button--ghost'>
           Add project
         </Link>
-        <a href={`${API_BASE_URL}/chats`} className='button button--ghost'>
+        <Link href='/chats' className='button button--ghost'>
           Chats
-        </a>
+        </Link>
         <Link
           href={`/profiles/${session.user.profile.id}`}
           className='button button--ghost'
