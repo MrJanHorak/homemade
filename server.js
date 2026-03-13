@@ -20,7 +20,7 @@ import { router as indexRouter } from './routes/index.js';
 import { router as authRouter } from './routes/auth.js';
 import { router as projectRouter } from './routes/projects.js';
 import { router as profileRouter } from './routes/profiles.js';
-import { router as searchRouter} from './routes/search.js';
+import { router as searchRouter } from './routes/search.js';
 import { router as chatRouter } from './routes/chats.js';
 
 // create the express app
@@ -45,16 +45,15 @@ app.use(
 );
 
 // session middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      sameSite: 'lax',
-    },
-  })
-);
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    sameSite: 'lax',
+  },
+});
+app.use(sessionMiddleware); // Use the middleware
 
 // passport middleware
 app.use(passport.initialize());
@@ -88,4 +87,4 @@ app.use(function (err, req, res, next) {
   });
 });
 
-export { app };
+export { app, sessionMiddleware };

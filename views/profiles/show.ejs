@@ -61,9 +61,11 @@
         <% } %>
       </div>
     </div>
-    <a href="/profiles/<%= user.profile.id %>/edit" class="btn"
+    <% if (isSelf) { %>
+    <a href="/profiles/<%= profile._id %>/edit" class="btn"
       >Update Your Profile</a
     >
+    <% } %>
   </div>
   <% } %>
 

@@ -1,57 +1,131 @@
 //ejs view for a single chat between two users
 <!-- Path: views/chats/chat.ejs -->
-<%- include('../partials/html-head') %>
-
-<%- include('../partials/nav') %>
+<%- include('../partials/html-head') %> <%- include('../partials/nav') %>
 <link rel="stylesheet" href="/stylesheets/chats/chat.css" />
 
 <main>
-  
   <div id="topSpaceBuffer"></div>
 
   <div class="chat-container">
-
     <!-- Left Sidebar: List of Chats -->
     <div class="chat-sidebar">
-
       <ul class="chat-list">
-        <% chats.forEach(chat => { %>
-          <li>
-            <a href="#" onclick="loadChat('<%= chat._id %>')">
-              <%= chat.user1.name %> and <%= chat.user2.name %>
-            </a>
-          </li>
+        <% chats.forEach(c => { %> <% // Determine the other user in this
+        specific chat for the sidebar link const otherUserInList =
+        c.user1._id.equals(currentUserProfileId) ? c.user2 : c.user1; const
+        isActive = c._id.equals(chat._id); // Check if this is the currently
+        active chat %>
+        <li class="<%= isActive ? 'active-chat' : '' %>">
+          <a href="/chats/<%= c._id %>">
+            <!-- Direct link instead of JS function -->
+            Chat with <%= otherUserInList.name %>
+          </a>
+        </li>
         <% }); %>
       </ul>
-
     </div>
 
     <!-- Right Content: Chat History and Input -->
     <div class="chat-content">
+      <div class="chat-header">
+        <% // Determine the other user for the header const otherUser =
+        chat.user1._id.equals(currentUserProfileId) ? chat.user2 : chat.user1;
+        %> Chat with <%= otherUser.name %>
+        <!-- Optionally add avatar: <img src="<%= otherUser.avatar %>" alt="<%= otherUser.name %>"> -->
+      </div>
 
-      <div id="chat-history"></div>
+      <div id="chat-history">
+        <!-- Render existing messages -->
+        <% chat.messages.forEach(message => { %> <% const isSender =
+        message.user._id.equals(currentUserProfileId); %>
+        <div class="message <%= isSender ? 'sent' : 'received' %>">
+          <div class="message-content">
+            <% if (!isSender) { %>
+            <!-- Optionally show sender's avatar -->
+            <!-- <img src="<%= message.user.avatar %>" class="message-avatar" alt="<%= message.user.name %>"> -->
+            <strong><%= message.user.name %>:</strong>
+            <% } %> <%= message.message %>
+          </div>
+          <span class="timestamp"
+            ><%= message.timestamp.toLocaleTimeString([], { hour: 'numeric',
+            minute: '2-digit' }) %></span
+          >
+        </div>
+        <% }); %>
+      </div>
 
       <div class="chat-input">
         <input id="message-input" type="text" placeholder="Type a message..." />
         <button onclick="sendMessage()">Send</button>
       </div>
-
     </div>
-
   </div>
 
   <script>
-    // Function to send chat message to sockert.io using es6 template literals an no jQuery at all
+    // Assuming 'socket' is globally available from html-head.ejs
+    const chatId = '<%= chat._id %>';
+    const currentUserProfileId = '<%= currentUserProfileId %>'; // Get current user profile ID
+    const messageInput = document.getElementById('message-input');
+    const chatHistory = document.getElementById('chat-history');
+
+    // Scroll to bottom on initial load
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+
+    // Inform server to join this chat room
+    socket.emit('join chat', chatId);
+
+    // Function to send chat message to socket.io
     function sendMessage() {
-      const message = document.getElementById('message-input').value;
-      socket.emit('chat message', `${message}`);
-      document.getElementById('message-input').value = '';
+      const message = messageInput.value;
+      if (message.trim()) {
+        socket.emit('chat message', { msg: message, chatId: chatId });
+        messageInput.value = '';
+      }
     }
 
-    // Function to recieve a chat message from socket.io using es6 template literals an no jQuery at all
+    // Function to receive a chat message from socket.io
+    socket.on('chat message', function (data) {
+      // No need to check chatId if using rooms correctly, but doesn't hurt
+      if (data.chatId === chatId) {
+        const messageElement = document.createElement('div');
+        const isSender = data.userId === currentUserProfileId;
+        messageElement.classList.add('message', isSender ? 'sent' : 'received');
 
-  
+        const messageContent = document.createElement('div');
+        messageContent.classList.add('message-content');
 
-    
+        let innerHTML = '';
+        if (!isSender) {
+          // Optionally add avatar here too for real-time messages
+          innerHTML += `<strong>${data.userName || 'User'}:</strong> `;
+        }
+        innerHTML += data.msg;
+        messageContent.innerHTML = innerHTML;
 
+        const timestampSpan = document.createElement('span');
+        timestampSpan.classList.add('timestamp');
+        timestampSpan.textContent = new Date(
+          data.timestamp || Date.now()
+        ).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+        messageElement.appendChild(messageContent);
+        messageElement.appendChild(timestampSpan);
+        chatHistory.appendChild(messageElement);
+
+        // Scroll to bottom
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+    });
+
+    // Optional: Add listener for Enter key in input
+    messageInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    // Removed the old loadChat function as we now use direct links
   </script>
+
+  <%- include('../partials/footer') %>
+</main>

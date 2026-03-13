@@ -18,7 +18,7 @@ const saveMessageToDatabase = async (chatId, user, message) => {
 // get all chats for a specific user
 const getChats = async (req, res, next) => {
   console.log('getChats');
-  console.log(req.user.profile)
+  console.log(req.user.profile);
   try {
     const user = req.user;
     const chats = await Chat.find({
@@ -26,24 +26,50 @@ const getChats = async (req, res, next) => {
     });
 
     // Example: Render chats in an EJS view
-    res.render('chats/index', { title:'chats', chats, user });
+    res.render('chats/index', { title: 'chats', chats, user });
   } catch (error) {
     next(error);
   }
-}
+};
 
 // Example: Render a chat view
 const getChat = async (req, res, next) => {
   try {
     const chatId = req.params.chatId;
-    const chat = await Chat.findById(chatId);
-    const user = req.user;
-    const profile = await Profile.findOne({ user: user._id });
-    const project = await Project.findById(chat.project);
+    // Populate user details for user1, user2, and messages.user
+    const chat = await Chat.findById(chatId)
+      .populate('user1', 'name avatar') // Populate user1 with name and avatar
+      .populate('user2', 'name avatar') // Populate user2 with name and avatar
+      .populate({
+        path: 'messages.user',
+        select: 'name avatar', // Populate message sender with name and avatar
+      });
 
-    // Example: Render chat view in an EJS view
-    res.render('chat/chat', { chat, user, profile, project });
+    if (!chat) {
+      // Handle case where chat is not found
+      return res.status(404).send('Chat not found');
+    }
+
+    // Also fetch all chats for the sidebar
+    const chats = await Chat.find({
+      $or: [{ user1: req.user.profile._id }, { user2: req.user.profile._id }],
+    })
+      .populate('user1', 'name') // Populate for sidebar display
+      .populate('user2', 'name');
+
+    // Determine the other user in the chat for display purposes
+    const otherUser = chat.user1._id.equals(req.user.profile._id)
+      ? chat.user2
+      : chat.user1;
+
+    res.render('chats/chat', {
+      title: `Chat with ${otherUser.name}`,
+      chat,
+      chats, // Pass all chats for the sidebar
+      currentUserProfileId: req.user.profile._id, // Pass current user's profile ID
+    });
   } catch (error) {
+    console.error('Error in getChat:', error);
     next(error);
   }
 };
@@ -88,37 +114,35 @@ const sendTyping = async (req, res, next) => {
 
 // Example: Create a new chat
 const createChat = async (req, res, next) => {
-  console.log('createChat')
-try {
-  const user1 = req.user;
-  console.log(user1)
-  const user2Id = req.body.user2;
-  console.log(user2Id)
+  console.log('createChat');
+  try {
+    const user1 = req.user;
+    console.log(user1);
+    const user2Id = req.body.user2;
+    console.log(user2Id);
 
+    // Example: Check if a chat already exists with these users
+    const existingChat = await Chat.findOne({
+      $or: [
+        { user1: user1._id, user2: user2Id },
+        { user1: user2Id, user2: user1._id },
+      ],
+    });
+    console.log(existingChat);
+    if (existingChat) {
+      // Redirect to the existing chat
+      res.redirect(`/chats/${existingChat._id}`);
+    } else {
+      // Create a new chat
+      const newChat = await Chat.create({ user1: user1._id, user2: user2Id });
 
-  // Example: Check if a chat already exists with these users
-  const existingChat = await Chat.findOne({
-    $or: [
-      { user1: user1._id, user2: user2Id },
-      { user1: user2Id, user2: user1._id },
-    ],
-  });
-
-  if (existingChat) {
-    // Redirect to the existing chat
-    res.redirect(`/chats/${existingChat._id}`);
-  } else {
-    // Create a new chat
-    const newChat = await Chat.create({ user1, user2: user2Id });
-
-    // Redirect to the new chat
-    res.redirect(`/chats/${newChat._id}`);
+      // Redirect to the new chat
+      res.redirect(`/chats/${newChat._id}`);
+    }
+  } catch (error) {
+    next(error);
   }
-} catch (error) {
-  next(error);
-}
 };
-
 
 // Example: Get all chats for a specific project
 const getProjectChats = async (req, res, next) => {
@@ -172,4 +196,5 @@ export {
   getProjectChats,
   getUserProjectChats,
   getChatHistory,
+  saveMessageToDatabase,
 };
