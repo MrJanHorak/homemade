@@ -1,11 +1,19 @@
 {
   "name": "homemade",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "description": "A social media, sharing site for makers and creators",
   "main": "server.js",
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
-    "start": "nodemon ./bin/www",
+    "start": "node ./bin/www.js",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "nodemon ./bin/www.js",
+    "dev:client": "npm run dev --workspace frontend",
+    "build:client": "npm run build --workspace frontend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -27,6 +35,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.462.0",
     "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.9",
     "express": "^4.18.2",
@@ -42,5 +51,8 @@
     "passport-google-oauth": "^2.0.0",
     "socket.io": "^4.7.2",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

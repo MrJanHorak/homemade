@@ -116,16 +116,16 @@ const sendTyping = async (req, res, next) => {
 const createChat = async (req, res, next) => {
   console.log('createChat');
   try {
-    const user1 = req.user;
-    console.log(user1);
+    const user1Id = req.user.profile._id;
+    console.log(user1Id);
     const user2Id = req.body.user2;
     console.log(user2Id);
 
     // Example: Check if a chat already exists with these users
     const existingChat = await Chat.findOne({
       $or: [
-        { user1: user1._id, user2: user2Id },
-        { user1: user2Id, user2: user1._id },
+        { user1: user1Id, user2: user2Id },
+        { user1: user2Id, user2: user1Id },
       ],
     });
     console.log(existingChat);
@@ -134,7 +134,7 @@ const createChat = async (req, res, next) => {
       res.redirect(`/chats/${existingChat._id}`);
     } else {
       // Create a new chat
-      const newChat = await Chat.create({ user1: user1._id, user2: user2Id });
+      const newChat = await Chat.create({ user1: user1Id, user2: user2Id });
 
       // Redirect to the new chat
       res.redirect(`/chats/${newChat._id}`);
