@@ -1,7 +1,7 @@
 import { Chat } from '../models/chat.js';
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
-import { projectPicstoS3 } from '../services/s3Service.js';
+import { profilePicstoS3, projectPicstoS3 } from '../services/s3Service.js';
 import {
   serializeChat,
   serializeProfile,
@@ -32,6 +32,21 @@ const parseOptionalNumber = (value) => {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const parseJsonObject = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
+  }
 };
 
 const getBackendBaseUrl = (req) =>
@@ -235,6 +250,59 @@ const getProfile = async (req, res) => {
   });
 };
 
+const updateProfile = async (req, res) => {
+  const profile = await Profile.findById(req.params.id).exec();
+
+  if (!profile) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+
+  if (!req.user.profile._id.equals(profile._id)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const name = req.body.name?.trim();
+
+  if (!name) {
+    res.status(400).json({ error: 'Name is required' });
+    return;
+  }
+
+  if (req.file) {
+    const avatarFileName = await profilePicstoS3(req.file);
+    profile.avatar = `https://homemadesocialsite.s3.amazonaws.com/profiles/${avatarFileName}`;
+  }
+
+  const social = parseJsonObject(req.body.social);
+
+  profile.name = name;
+  profile.description = req.body.description?.trim() || '';
+  profile.location = req.body.location?.trim() || '';
+  profile.website = req.body.website?.trim() || '';
+  profile.skills = cleanStringArray(req.body.skills);
+  profile.social = {
+    facebook: social.facebook?.trim() || '',
+    twitter: social.twitter?.trim() || '',
+    linkedin: social.linkedin?.trim() || '',
+    instagram: social.instagram?.trim() || '',
+    youtube: social.youtube?.trim() || '',
+    pinterest: social.pinterest?.trim() || '',
+    reddit: social.reddit?.trim() || '',
+    tiktok: social.tiktok?.trim() || '',
+    discord: social.discord?.trim() || '',
+    github: social.github?.trim() || '',
+    other: social.other?.trim() || '',
+  };
+
+  await profile.save();
+
+  res.json({
+    profile: serializeProfile(profile),
+  });
+};
+
 const searchProjects = async (req, res) => {
   const query = req.query.query?.trim();
 
@@ -357,4 +425,5 @@ export {
   getSession,
   healthcheck,
   searchProjects,
+  updateProfile,
 };

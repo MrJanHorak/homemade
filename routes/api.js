@@ -6,6 +6,7 @@ import multer from 'multer';
 const router = Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).array('buildPictures', 12);
+const profileUpload = multer({ storage }).single('avatar');
 
 router.get('/health', apiCtrl.healthcheck);
 router.get('/session/current', apiCtrl.getSession);
@@ -17,6 +18,12 @@ router.post('/projects/:id/comments', isApiLoggedIn, apiCtrl.addProjectComment);
 
 router.get('/profiles', apiCtrl.getProfiles);
 router.get('/profiles/:id', apiCtrl.getProfile);
+router.put(
+  '/profiles/:id',
+  isApiLoggedIn,
+  profileUpload,
+  apiCtrl.updateProfile,
+);
 
 router.get('/search', apiCtrl.searchProjects);
 

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import AuthControls from '@/components/auth-controls';
 import { API_BASE_URL } from '@/lib/api';
@@ -44,7 +45,13 @@ const SiteHeader = () => {
         <Link href='/profiles'>Profiles</Link>
       </nav>
 
-      <AuthControls />
+      <Suspense
+        fallback={
+          <div className='auth-strip auth-strip--muted'>Loading session...</div>
+        }
+      >
+        <AuthControls />
+      </Suspense>
     </header>
   );
 };

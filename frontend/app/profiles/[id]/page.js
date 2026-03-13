@@ -97,12 +97,9 @@ const ProfileDetailPage = async ({ params }) => {
         <aside className='section-panel'>
           <h2>Actions</h2>
           {isSelf ? (
-            <a
-              href={`${buildUrl(`/profiles/${profile.id}/edit`)}`}
-              className='button'
-            >
-              Edit profile on Express
-            </a>
+            <Link href={`/profiles/${profile.id}/edit`} className='button'>
+              Edit profile
+            </Link>
           ) : (
             <form
               method='post'

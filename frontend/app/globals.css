@@ -491,6 +491,24 @@ h3 {
   gap: 12px;
 }
 
+.profile-form__avatar-row,
+.profile-form__social-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-form__social-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.profile-form__avatar-preview {
+  width: 112px;
+  height: 112px;
+  border-radius: 24px;
+  object-fit: cover;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
 .project-form {
   display: grid;
   gap: 18px;
