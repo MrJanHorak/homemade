@@ -1179,6 +1179,53 @@ h3 {
   gap: 12px;
 }
 
+.not-found-tape {
+  min-height: min(72vh, 680px);
+  display: grid;
+  place-items: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.not-found-tape__card {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: clamp(20px, 4vw, 34px);
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: rgba(255, 251, 234, 0.9);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.2);
+}
+
+.not-found-tape__card::before,
+.not-found-tape__card::after {
+  content: '';
+  position: absolute;
+  width: 120px;
+  height: 28px;
+  background: rgba(206, 191, 146, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+}
+
+.not-found-tape__card::before {
+  top: 10px;
+  left: -10px;
+  transform: rotate(-11deg);
+}
+
+.not-found-tape__card::after {
+  right: -12px;
+  bottom: 12px;
+  transform: rotate(8deg);
+}
+
 @media (max-width: 900px) {
   .site-header__row {
     flex-wrap: wrap;
@@ -1259,5 +1306,13 @@ h3 {
   .moderation-meta {
     flex-direction: column;
     gap: 4px;
+  }
+
+  .not-found-tape {
+    min-height: 64vh;
+  }
+
+  .not-found-tape__card {
+    margin-top: 12px;
   }
 }
