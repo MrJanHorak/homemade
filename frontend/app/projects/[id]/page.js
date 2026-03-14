@@ -17,6 +17,80 @@ const formatDate = (value) => {
   }).format(new Date(value));
 };
 
+const getUploadedFileName = (url) => {
+  if (!url) {
+    return '';
+  }
+
+  const withoutQuery = url.split('?')[0] || '';
+  const key = withoutQuery.split('/').pop() || '';
+  const firstDashIndex = key.indexOf('-');
+  const rawName = firstDashIndex >= 0 ? key.slice(firstDashIndex + 1) : key;
+
+  try {
+    return decodeURIComponent(rawName).toLowerCase();
+  } catch {
+    return rawName.toLowerCase();
+  }
+};
+
+const parseInstruction = (instruction) => {
+  const raw = `${instruction || ''}`.trim();
+
+  if (!raw) {
+    return {
+      label: '',
+      content: '',
+      imageNames: [],
+      imagePosition: 'after',
+    };
+  }
+
+  const metadataMatch = raw.match(/\s*\(([^)]*)\)\s*$/);
+  const metadataRaw = metadataMatch?.[1] || '';
+  const hasImageMetadata = /(^|;)\s*images\s*:/i.test(metadataRaw);
+  const imagesMatch = metadataRaw.match(/(^|;)\s*images\s*:\s*([^;]*)/i);
+  const positionMatch = metadataRaw.match(
+    /(^|;)\s*position\s*:\s*(before|after)\s*($|;)/i,
+  );
+
+  const imageNames = imagesMatch?.[2]
+    ? imagesMatch[2]
+        .split(',')
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+  const imagePosition = positionMatch?.[2]
+    ? positionMatch[2].toLowerCase()
+    : 'after';
+
+  const withoutImages =
+    hasImageMetadata && metadataMatch
+      ? raw.slice(0, metadataMatch.index).trim()
+      : raw;
+  const typeMatch = withoutImages.match(/^\[(TIP|WARNING|CHECKPOINT)\]\s*/i);
+  const withoutType = typeMatch
+    ? withoutImages.slice(typeMatch[0].length)
+    : withoutImages;
+  const colonIndex = withoutType.indexOf(':');
+
+  if (colonIndex > -1) {
+    return {
+      label: withoutType.slice(0, colonIndex).trim(),
+      content: withoutType.slice(colonIndex + 1).trim(),
+      imageNames,
+      imagePosition,
+    };
+  }
+
+  return {
+    label: '',
+    content: withoutType,
+    imageNames,
+    imagePosition,
+  };
+};
+
 const ProjectDetailPage = async ({ params }) => {
   const { id } = await params;
 
@@ -33,6 +107,31 @@ const ProjectDetailPage = async ({ params }) => {
   }
 
   const { project } = await response.json();
+  const picturesByName = (project.buildPictures || []).reduce((map, url) => {
+    const name = getUploadedFileName(url);
+
+    if (!name) {
+      return map;
+    }
+
+    if (!map.has(name)) {
+      map.set(name, []);
+    }
+
+    map.get(name).push(url);
+    return map;
+  }, new Map());
+  const parsedInstructions = (project.buildInstructions || []).map((entry) => {
+    const parsed = parseInstruction(entry);
+    const stepImages = parsed.imageNames.flatMap(
+      (imageName) => picturesByName.get(imageName) || [],
+    );
+
+    return {
+      ...parsed,
+      images: Array.from(new Set(stepImages)),
+    };
+  });
 
   return (
     <div className='page-stack'>
@@ -93,8 +192,45 @@ const ProjectDetailPage = async ({ params }) => {
         <article className='section-panel'>
           <h2>Build instructions</h2>
           <ol className='step-list'>
-            {project.buildInstructions.map((instruction) => (
-              <li key={instruction}>{instruction}</li>
+            {parsedInstructions.map((instruction, index) => (
+              <li key={`${instruction.label}-${instruction.content}-${index}`}>
+                <article className='step-card'>
+                  {instruction.images.length &&
+                  instruction.imagePosition === 'before' ? (
+                    <div className='step-card__media'>
+                      {instruction.images.map((imageUrl, imageIndex) => (
+                        <img
+                          key={`${imageUrl}-${imageIndex}`}
+                          src={imageUrl}
+                          alt={`Build step ${index + 1} progress image ${imageIndex + 1}`}
+                          className='step-card__image'
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {instruction.label ? (
+                    <strong className='step-card__title'>
+                      {instruction.label}
+                    </strong>
+                  ) : null}
+                  <p className='step-card__content'>{instruction.content}</p>
+
+                  {instruction.images.length &&
+                  instruction.imagePosition !== 'before' ? (
+                    <div className='step-card__media'>
+                      {instruction.images.map((imageUrl, imageIndex) => (
+                        <img
+                          key={`${imageUrl}-${imageIndex}`}
+                          src={imageUrl}
+                          alt={`Build step ${index + 1} progress image ${imageIndex + 1}`}
+                          className='step-card__image'
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
+              </li>
             ))}
           </ol>
         </article>

@@ -21,6 +21,7 @@ const createEmptyStep = () => ({
   title: '',
   content: '',
   imageIndexes: [],
+  imagePosition: 'after',
 });
 
 const fallbackStandardOptions = fallbackCategories.map((entry) => ({
@@ -38,11 +39,99 @@ const emptySession = {
   },
 };
 
-const ProjectFormPage = () => {
+const parseInstructionToStep = (rawInstruction, index) => {
+  const instruction = `${rawInstruction || ''}`.trim();
+
+  if (!instruction) {
+    return null;
+  }
+
+  let type = 'instruction';
+  let text = instruction;
+  const typeMatch = text.match(/^\[(TIP|WARNING|CHECKPOINT)\]\s*/i);
+
+  if (typeMatch) {
+    type = typeMatch[1].toLowerCase();
+    text = text.slice(typeMatch[0].length);
+  }
+
+  const metadataMatch = text.match(/\s*\(([^)]*)\)\s*$/);
+  let imagePosition = 'after';
+
+  if (metadataMatch) {
+    const metadataRaw = metadataMatch[1];
+    const hasImageMetadata = /(^|;)\s*images\s*:/i.test(metadataRaw);
+
+    if (hasImageMetadata) {
+      const positionMatch = metadataRaw.match(
+        /(^|;)\s*position\s*:\s*(before|after)\s*($|;)/i,
+      );
+
+      if (positionMatch) {
+        imagePosition = positionMatch[2].toLowerCase();
+      }
+
+      text = text.slice(0, metadataMatch.index).trim();
+    }
+  }
+
+  if (!text) {
+    return null;
+  }
+
+  const separatorIndex = text.indexOf(':');
+  if (separatorIndex > 0) {
+    return {
+      ...createEmptyStep(),
+      type,
+      title: text.slice(0, separatorIndex).trim(),
+      content: text.slice(separatorIndex + 1).trim(),
+      imagePosition,
+    };
+  }
+
+  return {
+    ...createEmptyStep(),
+    type,
+    title: `Step ${index + 1}`,
+    content: text,
+    imagePosition,
+  };
+};
+
+const buildStepsFromInstructions = (instructions) => {
+  const parsed = (Array.isArray(instructions) ? instructions : [])
+    .map((instruction, index) => parseInstructionToStep(instruction, index))
+    .filter(Boolean);
+
+  return parsed.length ? parsed : [createEmptyStep()];
+};
+
+const getStoredPictureName = (url, fallbackLabel) => {
+  const withoutQuery = `${url || ''}`.split('?')[0] || '';
+  const key = withoutQuery.split('/').pop() || '';
+  const firstDashIndex = key.indexOf('-');
+  const rawName = firstDashIndex >= 0 ? key.slice(firstDashIndex + 1) : key;
+
+  if (!rawName) {
+    return fallbackLabel;
+  }
+
+  try {
+    return decodeURIComponent(rawName);
+  } catch {
+    return rawName;
+  }
+};
+
+const ProjectForm = ({ mode = 'create', projectId = null }) => {
+  const isEditMode = mode === 'edit';
   const router = useRouter();
   const [session, setSession] = useState(emptySession);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOwner, setIsOwner] = useState(mode !== 'edit');
+  const [existingPictures, setExistingPictures] = useState([]);
   const [error, setError] = useState('');
   const [draftState, setDraftState] = useState('');
   const [hasInitializedDraft, setHasInitializedDraft] = useState(false);
@@ -72,6 +161,21 @@ const ProjectFormPage = () => {
     visible: true,
   });
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [stepImageFilters, setStepImageFilters] = useState({});
+
+  const existingImageEntries = useMemo(
+    () =>
+      existingPictures.map((url, index) => ({
+        url,
+        name: getStoredPictureName(url, `Existing image ${index + 1}`),
+      })),
+    [existingPictures],
+  );
+
+  const stepImageEntries = useMemo(
+    () => [...existingImageEntries, ...imagePreviews],
+    [existingImageEntries, imagePreviews],
+  );
 
   const categoryValueToLabel = useMemo(
     () =>
@@ -120,6 +224,10 @@ const ProjectFormPage = () => {
             (value) => Number.isInteger(value) && value >= 0,
           )
         : [],
+      imagePosition:
+        step?.imagePosition === 'before' || step?.imagePosition === 'after'
+          ? step.imagePosition
+          : 'after',
     }));
   };
 
@@ -185,8 +293,76 @@ const ProjectFormPage = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const loadSession = async () => {
+    const loadInitialState = async () => {
       try {
+        if (isEditMode && projectId) {
+          const [sessionResponse, projectResponse] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/session/current`, {
+              credentials: 'include',
+            }),
+            fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+              credentials: 'include',
+            }),
+          ]);
+
+          const sessionData = await sessionResponse
+            .json()
+            .catch(() => emptySession);
+          const projectData = await projectResponse.json().catch(() => ({}));
+          const project = projectData.project;
+
+          if (!project) {
+            throw new Error('Unable to load project');
+          }
+
+          if (!isMounted) {
+            return;
+          }
+
+          const ownsProject = Boolean(
+            sessionData.user?.profile?.id &&
+            project.owner &&
+            sessionData.user.profile.id === project.owner,
+          );
+
+          setSession(sessionData);
+          setIsOwner(ownsProject);
+          setExistingPictures(
+            Array.isArray(project.buildPictures) ? project.buildPictures : [],
+          );
+          setForm((current) => ({
+            ...current,
+            title: project.title || '',
+            description: project.description || '',
+            buildTime: project.buildTime ?? '',
+            difficulty: project.difficulty ?? '',
+            estimatedCost: project.estimatedCost ?? '',
+            categories: Array.isArray(project.categories)
+              ? project.categories
+              : [],
+            otherCategory: Array.isArray(project.otherCategory)
+              ? project.otherCategory
+              : [],
+            materialsNeeded: project.materialsNeeded?.length
+              ? project.materialsNeeded
+              : [''],
+            toolsNeeded: project.toolsNeeded?.length
+              ? project.toolsNeeded
+              : [''],
+            buildInstructions: project.buildInstructions?.length
+              ? project.buildInstructions
+              : [''],
+            externalLinks: project.externalLinks?.length
+              ? project.externalLinks
+              : [''],
+            buildPictures: [],
+            buildSteps: buildStepsFromInstructions(project.buildInstructions),
+            visible: project.visible !== false,
+          }));
+
+          return;
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/session/current`, {
           credentials: 'include',
         });
@@ -198,6 +374,9 @@ const ProjectFormPage = () => {
       } catch {
         if (isMounted) {
           setSession(emptySession);
+          if (isEditMode) {
+            setError('Unable to load project');
+          }
         }
       } finally {
         if (isMounted) {
@@ -206,12 +385,12 @@ const ProjectFormPage = () => {
       }
     };
 
-    loadSession();
+    loadInitialState();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isEditMode, projectId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -255,8 +434,12 @@ const ProjectFormPage = () => {
 
   const loginHref = useMemo(
     () =>
-      `${session.links.login}?returnTo=${encodeURIComponent('/projects/new')}`,
-    [session.links.login],
+      `${session.links.login}?returnTo=${encodeURIComponent(
+        isEditMode && projectId
+          ? `/projects/${projectId}/edit`
+          : '/projects/new',
+      )}`,
+    [isEditMode, projectId, session.links.login],
   );
 
   useEffect(() => {
@@ -273,7 +456,12 @@ const ProjectFormPage = () => {
   }, [form.buildPictures]);
 
   useEffect(() => {
-    if (isLoading || !session.authenticated || hasInitializedDraft) {
+    if (
+      isEditMode ||
+      isLoading ||
+      !session.authenticated ||
+      hasInitializedDraft
+    ) {
       return;
     }
 
@@ -334,10 +522,10 @@ const ProjectFormPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [isLoading, session.authenticated, hasInitializedDraft]);
+  }, [isEditMode, isLoading, session.authenticated, hasInitializedDraft]);
 
   useEffect(() => {
-    if (!hasInitializedDraft || !session.authenticated) {
+    if (isEditMode || !hasInitializedDraft || !session.authenticated) {
       return;
     }
 
@@ -363,7 +551,7 @@ const ProjectFormPage = () => {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [form, hasInitializedDraft, session.authenticated]);
+  }, [form, isEditMode, hasInitializedDraft, session.authenticated]);
 
   const updateField = (field, value) => {
     setForm((current) => ({
@@ -482,6 +670,7 @@ const ProjectFormPage = () => {
 
   const handleFileChange = (event) => {
     const nextFiles = Array.from(event.target.files || []);
+    const nextImageCount = existingImageEntries.length + nextFiles.length;
 
     setForm((current) => ({
       ...current,
@@ -489,7 +678,7 @@ const ProjectFormPage = () => {
       buildSteps: current.buildSteps.map((step) => ({
         ...step,
         imageIndexes: step.imageIndexes.filter(
-          (imageIndex) => imageIndex < nextFiles.length,
+          (imageIndex) => imageIndex < nextImageCount,
         ),
       })),
     }));
@@ -563,6 +752,13 @@ const ProjectFormPage = () => {
     }));
   };
 
+  const setStepImageFilter = (stepIndex, filter) => {
+    setStepImageFilters((current) => ({
+      ...current,
+      [stepIndex]: filter,
+    }));
+  };
+
   const clearSavedDraft = async () => {
     try {
       await clearDraftInApi();
@@ -625,10 +821,10 @@ const ProjectFormPage = () => {
           }
 
           const imageLabels = step.imageIndexes
-            .map((imageIndex) => form.buildPictures[imageIndex]?.name)
+            .map((imageIndex) => stepImageEntries[imageIndex]?.name)
             .filter(Boolean);
           const imageSuffix = imageLabels.length
-            ? ` (Images: ${imageLabels.join(', ')})`
+            ? ` (Images: ${imageLabels.join(', ')}; Position: ${step.imagePosition || 'after'})`
             : '';
           const header = cleanedTitle || `Step ${index + 1}`;
           const typePrefix =
@@ -676,8 +872,12 @@ const ProjectFormPage = () => {
         payload.append('buildPictures', file),
       );
 
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        method: 'POST',
+      const endpoint = isEditMode
+        ? `${API_BASE_URL}/api/projects/${projectId}`
+        : `${API_BASE_URL}/api/projects`;
+      const method = isEditMode ? 'PUT' : 'POST';
+      const response = await fetch(endpoint, {
+        method,
         credentials: 'include',
         body: payload,
       });
@@ -690,17 +890,25 @@ const ProjectFormPage = () => {
       const responseData = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(responseData.error || 'Unable to create project');
+        throw new Error(
+          responseData.error ||
+            (isEditMode
+              ? 'Unable to update project'
+              : 'Unable to create project'),
+        );
       }
 
-      try {
-        await clearDraftInApi();
-      } catch {
-        // Do not block publish redirect if draft cleanup fails.
+      if (!isEditMode) {
+        try {
+          await clearDraftInApi();
+        } catch {
+          // Do not block publish redirect if draft cleanup fails.
+        }
+        window.localStorage.removeItem(LOCAL_DRAFT_FALLBACK_KEY);
       }
-      window.localStorage.removeItem(LOCAL_DRAFT_FALLBACK_KEY);
 
-      router.push(`/projects/${responseData.project.id}`);
+      const targetProjectId = isEditMode ? projectId : responseData.project?.id;
+      router.push(`/projects/${targetProjectId}`);
       router.refresh();
     } catch (submitError) {
       setError(submitError.message);
@@ -712,8 +920,10 @@ const ProjectFormPage = () => {
   if (isLoading) {
     return (
       <section className='section-panel section-panel--tight'>
-        <p className='eyebrow'>New project</p>
-        <h1>Loading your workspace...</h1>
+        <p className='eyebrow'>{isEditMode ? 'Edit project' : 'New project'}</p>
+        <h1>
+          {isEditMode ? 'Loading project...' : 'Loading your workspace...'}
+        </h1>
       </section>
     );
   }
@@ -721,20 +931,40 @@ const ProjectFormPage = () => {
   if (!session.authenticated) {
     return (
       <section className='section-panel section-panel--tight'>
-        <p className='eyebrow'>New project</p>
-        <h1>Sign in to publish a build.</h1>
+        <p className='eyebrow'>{isEditMode ? 'Edit project' : 'New project'}</p>
+        <h1>
+          {isEditMode
+            ? 'Sign in to edit this project.'
+            : 'Sign in to publish a build.'}
+        </h1>
         <p className='empty-copy'>
-          Use your Google account to post a project, then come straight back to
-          this page.
+          {isEditMode
+            ? 'Use your Google account to edit this project, then come straight back to this page.'
+            : 'Use your Google account to post a project, then come straight back to this page.'}
         </p>
         <div className='page-actions'>
           <a href={loginHref} className='button'>
             Sign in with Google
           </a>
-          <Link href='/projects' className='button button--ghost'>
-            Back to projects
+          <Link
+            href={isEditMode ? `/projects/${projectId}` : '/projects'}
+            className='button button--ghost'
+          >
+            {isEditMode ? 'Back to project' : 'Back to projects'}
           </Link>
         </div>
+      </section>
+    );
+  }
+
+  if (isEditMode && !isOwner) {
+    return (
+      <section className='section-panel section-panel--tight'>
+        <p className='eyebrow'>Edit project</p>
+        <h1>You can only edit your own projects.</h1>
+        <Link href={`/projects/${projectId}`} className='button'>
+          Back to project
+        </Link>
       </section>
     );
   }
@@ -777,16 +1007,21 @@ const ProjectFormPage = () => {
     <section className='section-panel'>
       <div className='section-panel__header'>
         <div>
-          <p className='eyebrow'>New project</p>
-          <h1>Publish a build log</h1>
+          <p className='eyebrow'>
+            {isEditMode ? 'Edit project' : 'New project'}
+          </p>
+          <h1>
+            {isEditMode ? 'Update your build log' : 'Publish a build log'}
+          </h1>
         </div>
         <p className='section-copy'>
-          Add the materials, process, pictures, and useful links so someone else
-          can actually build it.
+          {isEditMode
+            ? 'Refine materials, process, pictures, and links so your project stays easy to follow.'
+            : 'Add the materials, process, pictures, and useful links so someone else can actually build it.'}
         </p>
       </div>
 
-      {draftState ? (
+      {!isEditMode && draftState ? (
         <div className='draft-indicator'>
           <p>{draftState}</p>
           <button
@@ -981,8 +1216,28 @@ const ProjectFormPage = () => {
           </div>
 
           <div className='project-form__section'>
+            {isEditMode && existingPictures.length ? (
+              <>
+                <h3>Current images</h3>
+                <div className='project-media-library'>
+                  {existingImageEntries.slice(0, 12).map((picture) => (
+                    <div key={picture.url}>
+                      <img
+                        src={picture.url}
+                        alt={picture.name}
+                        className='project-media-library__image'
+                      />
+                      <p className='project-media-library__name'>
+                        {picture.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
             <label>
-              Image library
+              {isEditMode ? 'Add more pictures' : 'Image library'}
               <input
                 type='file'
                 multiple
@@ -991,13 +1246,19 @@ const ProjectFormPage = () => {
               />
             </label>
             <p className='helper-copy'>
-              Upload JPG or PNG images once, then place them inside individual
-              build steps.
+              {isEditMode
+                ? 'New uploads are appended to your existing project images.'
+                : 'Upload JPG or PNG images once, then place them inside individual build steps.'}
             </p>
             <p className='helper-copy'>
-              Note: image files are not persisted in cloud drafts and must be
-              re-selected.
+              Attach images per step below by clicking image tiles in each step.
             </p>
+            {!isEditMode ? (
+              <p className='helper-copy'>
+                Note: image files are not persisted in cloud drafts and must be
+                re-selected.
+              </p>
+            ) : null}
 
             {imagePreviews.length ? (
               <div className='project-media-library'>
@@ -1128,6 +1389,25 @@ const ProjectFormPage = () => {
                   </label>
 
                   <label>
+                    Image placement
+                    <select
+                      value={step.imagePosition || 'after'}
+                      onChange={(event) =>
+                        updateStepField(
+                          stepIndex,
+                          'imagePosition',
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value='after'>Show images after step text</option>
+                      <option value='before'>
+                        Show images before step text
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
                     Step title
                     <input
                       type='text'
@@ -1156,32 +1436,89 @@ const ProjectFormPage = () => {
                   </label>
                 </div>
 
-                {imagePreviews.length ? (
-                  <div className='project-step__gallery'>
-                    {imagePreviews.map((preview, imageIndex) => {
-                      const isSelected = step.imageIndexes.includes(imageIndex);
+                {stepImageEntries.length ? (
+                  <>
+                    <p className='project-step__attachment-summary'>
+                      Attach images to this step: {step.imageIndexes.length}{' '}
+                      selected
+                    </p>
+                    <div className='project-step__image-filters'>
+                      {['all', 'selected', 'unselected'].map((filter) => {
+                        const activeFilter =
+                          stepImageFilters[stepIndex] || 'all';
 
-                      return (
-                        <button
-                          key={`${preview.name}-${imageIndex}-step-${stepIndex}`}
-                          type='button'
-                          className={`project-step__image-toggle ${
-                            isSelected
-                              ? 'project-step__image-toggle--active'
-                              : ''
-                          }`}
-                          onClick={() => toggleStepImage(stepIndex, imageIndex)}
-                        >
-                          <img
-                            src={preview.url}
-                            alt={preview.name}
-                            className='project-step__image'
-                          />
-                          <span>{preview.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        return (
+                          <button
+                            key={`${stepIndex}-${filter}`}
+                            type='button'
+                            className={`project-step__filter-chip ${
+                              activeFilter === filter
+                                ? 'project-step__filter-chip--active'
+                                : ''
+                            }`}
+                            onClick={() =>
+                              setStepImageFilter(stepIndex, filter)
+                            }
+                          >
+                            {filter === 'all'
+                              ? 'All'
+                              : filter === 'selected'
+                                ? 'Selected only'
+                                : 'Unselected only'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className='project-step__gallery'>
+                      {stepImageEntries
+                        .map((preview, imageIndex) => ({ preview, imageIndex }))
+                        .filter(({ imageIndex }) => {
+                          const activeFilter =
+                            stepImageFilters[stepIndex] || 'all';
+                          const isSelected =
+                            step.imageIndexes.includes(imageIndex);
+
+                          if (activeFilter === 'selected') {
+                            return isSelected;
+                          }
+
+                          if (activeFilter === 'unselected') {
+                            return !isSelected;
+                          }
+
+                          return true;
+                        })
+                        .map(({ preview, imageIndex }) => {
+                          const isSelected =
+                            step.imageIndexes.includes(imageIndex);
+
+                          return (
+                            <button
+                              key={`${preview.name}-${imageIndex}-step-${stepIndex}`}
+                              type='button'
+                              className={`project-step__image-toggle ${
+                                isSelected
+                                  ? 'project-step__image-toggle--active'
+                                  : ''
+                              }`}
+                              onClick={() =>
+                                toggleStepImage(stepIndex, imageIndex)
+                              }
+                            >
+                              <span className='project-step__image-status'>
+                                {isSelected ? 'Attached' : 'Not attached'}
+                              </span>
+                              <img
+                                src={preview.url}
+                                alt={preview.name}
+                                className='project-step__image'
+                              />
+                              <span>{preview.name}</span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </>
                 ) : (
                   <p className='helper-copy'>
                     Upload images above to place them in this step.
@@ -1210,10 +1547,19 @@ const ProjectFormPage = () => {
 
         <div className='page-actions'>
           <button type='submit' className='button' disabled={isSubmitting}>
-            {isSubmitting ? 'Publishing...' : 'Publish project'}
+            {isSubmitting
+              ? isEditMode
+                ? 'Saving...'
+                : 'Publishing...'
+              : isEditMode
+                ? 'Save project'
+                : 'Publish project'}
           </button>
-          <Link href='/projects' className='button button--ghost'>
-            Cancel
+          <Link
+            href={isEditMode ? `/projects/${projectId}` : '/projects'}
+            className='button button--ghost'
+          >
+            {isEditMode ? 'Back to project' : 'Cancel'}
           </Link>
         </div>
       </form>
@@ -1221,4 +1567,4 @@ const ProjectFormPage = () => {
   );
 };
 
-export default ProjectFormPage;
+export default ProjectForm;
