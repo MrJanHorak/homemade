@@ -8,7 +8,11 @@ const SiteHeader = () => {
   return (
     <header className='site-shell__header'>
       <div className='site-header__row'>
-        <Link href='/' className='brand-panel__identity' aria-label='Homemade home'>
+        <Link
+          href='/'
+          className='brand-panel__identity'
+          aria-label='Homemade home'
+        >
           <img
             src={`${API_BASE_URL}/images/homemadelogo.png`}
             alt='Homemade logo'
