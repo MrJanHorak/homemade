@@ -3,7 +3,20 @@ import passport from 'passport';
 
 const router = Router();
 
-const getFrontendBaseUrl = () => process.env.FRONTEND_URL || '/';
+const getFrontendBaseUrl = () => {
+  const configuredBaseUrl =
+    process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN;
+
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return 'http://localhost:3001';
+  }
+
+  return '/';
+};
 
 const sanitizeReturnTo = (returnTo) => {
   if (typeof returnTo !== 'string') {

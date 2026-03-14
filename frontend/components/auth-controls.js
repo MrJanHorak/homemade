@@ -55,53 +55,55 @@ const AuthControls = () => {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className='auth-strip auth-strip--muted'>Loading session...</div>
-    );
+    return <div className='auth-inline auth-inline--muted'>Loading...</div>;
   }
 
   if (!session.authenticated) {
     return (
-      <div className='auth-strip'>
-        <span>
-          Browse public builds now, sign in when you want to post or chat.
-        </span>
-        <a href={loginHref} className='button'>
-          Sign in with Google
-        </a>
-      </div>
+      <a href={loginHref} className='button button--compact'>
+        Sign in
+      </a>
     );
   }
 
   return (
-    <div className='auth-strip auth-strip--active'>
-      <div className='auth-strip__user'>
+    <details className='account-menu'>
+      <summary className='account-menu__trigger'>
         <img
           src={session.user.profile.avatar}
           alt={session.user.profile.name}
-          className='auth-strip__avatar'
+          className='account-menu__avatar'
         />
-        <span>{session.user.profile.name}</span>
-      </div>
+        <span className='account-menu__name'>{session.user.profile.name}</span>
+        <span className='account-menu__chevron' aria-hidden='true'>
+          ▾
+        </span>
+      </summary>
 
-      <div className='auth-strip__actions'>
-        <Link href='/projects/new' className='button button--ghost'>
-          Add project
-        </Link>
-        <Link href='/chats' className='button button--ghost'>
+      <div className='account-menu__panel'>
+        <Link href='/chats' className='account-menu__link'>
           Chats
+        </Link>
+        <Link href='/projects/new' className='account-menu__link'>
+          Add project
         </Link>
         <Link
           href={`/profiles/${session.user.profile.id}`}
-          className='button button--ghost'
+          className='account-menu__link'
         >
           My profile
         </Link>
-        <a href={session.links.logout} className='button'>
+        <Link
+          href={`/profiles/${session.user.profile.id}/edit`}
+          className='account-menu__link'
+        >
+          Profile settings
+        </Link>
+        <a href={session.links.logout} className='account-menu__link'>
           Sign out
         </a>
       </div>
-    </div>
+    </details>
   );
 };
 
