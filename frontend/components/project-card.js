@@ -1,11 +1,13 @@
 import Link from 'next/link';
 
-const ProjectCard = ({ project }) => {
+const ProjectCard = ({ project, diyTone = 'minimal' }) => {
   const heroImage =
     project.buildPictures[0] || 'https://placehold.co/800x600?text=Homemade';
 
   return (
-    <article className='project-card'>
+    <article
+      className={`project-card project-card--diy project-card--diy-${diyTone}`}
+    >
       <div className='project-card__visual'>
         <img
           src={heroImage}

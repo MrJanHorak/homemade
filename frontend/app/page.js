@@ -11,7 +11,7 @@ const HomePage = async () => {
 
   return (
     <div className='page-stack'>
-      <section className='hero-panel'>
+      <section className='hero-panel hero-panel--diy'>
         <div className='hero-panel__copy'>
           <p className='eyebrow'>Featured this week</p>
           <h1>Show what you built, how you built it, and what you learned.</h1>
@@ -32,17 +32,17 @@ const HomePage = async () => {
         </div>
 
         <div className='hero-panel__stats'>
-          <div className='stat-card'>
+          <div className='stat-card stat-card--diy'>
             <span className='stat-card__value'>{projects.length}</span>
             <span className='stat-card__label'>Featured builds right now</span>
           </div>
-          <div className='stat-card'>
+          <div className='stat-card stat-card--diy'>
             <span className='stat-card__value'>Build</span>
             <span className='stat-card__label'>
               Instructions, materials, and tools
             </span>
           </div>
-          <div className='stat-card'>
+          <div className='stat-card stat-card--diy'>
             <span className='stat-card__value'>Meet</span>
             <span className='stat-card__label'>
               The creators behind each project
@@ -64,7 +64,7 @@ const HomePage = async () => {
 
         <div className='project-grid'>
           {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+            <ProjectCard key={project.id} project={project} diyTone='bold' />
           ))}
         </div>
       </section>

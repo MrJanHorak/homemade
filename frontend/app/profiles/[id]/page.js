@@ -37,8 +37,8 @@ const ProfileDetailPage = async ({ params }) => {
 
   return (
     <div className='page-stack'>
-      <section className='detail-hero detail-hero--profile'>
-        <div className='profile-hero-card'>
+      <section className='detail-hero detail-hero--profile detail-hero--diy-minimal'>
+        <div className='profile-hero-card profile-hero-card--diy-minimal'>
           <img
             src={profile.avatar}
             alt={profile.name}
@@ -54,19 +54,19 @@ const ProfileDetailPage = async ({ params }) => {
         </div>
 
         <div className='metric-grid'>
-          <div className='metric-card'>
+          <div className='metric-card metric-card--diy-minimal'>
             <span className='metric-card__label'>Joined</span>
             <strong>{formatDate(profile.createdAt)}</strong>
           </div>
-          <div className='metric-card'>
+          <div className='metric-card metric-card--diy-minimal'>
             <span className='metric-card__label'>Public projects</span>
             <strong>{profile.projectCount}</strong>
           </div>
-          <div className='metric-card'>
+          <div className='metric-card metric-card--diy-minimal'>
             <span className='metric-card__label'>Location</span>
             <strong>{profile.location || 'Unknown'}</strong>
           </div>
-          <div className='metric-card'>
+          <div className='metric-card metric-card--diy-minimal'>
             <span className='metric-card__label'>Website</span>
             <strong>
               {profile.website ? (
@@ -130,7 +130,11 @@ const ProfileDetailPage = async ({ params }) => {
         <div className='project-grid'>
           {projects.length ? (
             projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectCard
+                key={project.id}
+                project={project}
+                diyTone='minimal'
+              />
             ))
           ) : (
             <p className='empty-copy'>No public projects yet.</p>
