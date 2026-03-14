@@ -46,6 +46,87 @@ The Express backend now exposes these endpoints for the frontend:
 - `GET /api/chats/:chatId`
 - `POST /api/chats`
 
+Admin and moderation endpoints:
+
+- `GET /api/categories`
+- `GET /api/admin/category-suggestions?status=pending|approved|rejected&promoted=true|false`
+- `PUT /api/admin/category-suggestions/:id`
+- `POST /api/admin/category-suggestions/:id/promote`
+- `POST /api/admin/category-suggestions/:id/demote`
+
+## Admin access
+
+The app now includes an admin moderation page for category suggestions.
+
+### Admin UI access
+
+1. Sign in with Google as usual.
+2. Open the account menu in the Next.js header.
+3. If your profile role is `admin`, you will see `Category moderation`.
+4. You can also visit `/admin/category-suggestions` directly.
+
+### Who is an admin
+
+Admins are determined by the `role` field on the authenticated user's `Profile` document in MongoDB.
+
+- `role: "user"` (default): regular user
+- `role: "admin"`: can access admin moderation APIs and UI
+
+## Adding or removing admins
+
+Use MongoDB shell (`mongosh`) or MongoDB Compass.
+
+### Option A: mongosh
+
+Connect using your existing `DATABASE_URL`, then run updates against the `profiles` collection.
+
+Find a profile:
+
+```javascript
+db.profiles.find({ name: /jan/i }, { _id: 1, name: 1, role: 1 });
+```
+
+Promote to admin:
+
+```javascript
+db.profiles.updateOne(
+  { _id: ObjectId('PROFILE_ID_HERE') },
+  { $set: { role: 'admin' } },
+);
+```
+
+Revoke admin:
+
+```javascript
+db.profiles.updateOne(
+  { _id: ObjectId('PROFILE_ID_HERE') },
+  { $set: { role: 'user' } },
+);
+```
+
+### Option B: MongoDB Compass
+
+1. Connect to the database using `DATABASE_URL`.
+2. Open the `profiles` collection.
+3. Locate the profile document.
+4. Edit `role` to `admin` (or back to `user`).
+5. Save.
+
+### Verify admin assignment
+
+After changing role:
+
+1. Sign out and sign back in (or refresh session).
+2. Call `GET /api/session/current` and confirm `user.profile.role` is `admin`.
+3. Open `/admin/category-suggestions` and confirm access.
+
+## Admin safety notes
+
+- Keep the number of admins small.
+- Prefer promoting trusted profiles only.
+- Review category suggestions regularly and reject unsafe labels.
+- Demote admin accounts that no longer need moderation access.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` and fill in the values.

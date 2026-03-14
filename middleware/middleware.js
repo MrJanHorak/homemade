@@ -13,4 +13,18 @@ const isApiLoggedIn = (req, res, next) => {
   res.status(401).json({ error: 'Authentication required' });
 };
 
-export { isApiLoggedIn, passUserToView, isLoggedIn };
+const isApiAdmin = (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  if (req.user?.profile?.role === 'admin') {
+    next();
+    return;
+  }
+
+  res.status(403).json({ error: 'Admin role required' });
+};
+
+export { isApiAdmin, isApiLoggedIn, passUserToView, isLoggedIn };

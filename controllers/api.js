@@ -1,12 +1,22 @@
 import { Chat } from '../models/chat.js';
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
+import { ProjectDraft } from '../models/projectDraft.js';
+import { CategorySuggestion } from '../models/categorySuggestion.js';
 import { profilePicstoS3, projectPicstoS3 } from '../services/s3Service.js';
+import categoryCatalog from '../data/categories.js';
 import {
   serializeChat,
   serializeProfile,
   serializeProject,
 } from '../lib/serializers.js';
+
+const CATEGORY_BLOCKLIST = ['porn', 'xxx', 'nsfw', 'racist', 'hate', 'nazi'];
+const CATEGORY_ALLOWED_CHARS = /^[a-z0-9][a-z0-9 &+/'-]{1,38}$/i;
+const CATEGORY_VALUE_SET = new Set(categoryCatalog.map((entry) => entry.value));
+const CATEGORY_LABEL_SET = new Set(
+  categoryCatalog.map((entry) => entry.label.toLowerCase()),
+);
 
 const getArrayField = (value) => {
   if (Array.isArray(value)) {
@@ -25,6 +35,119 @@ const cleanStringArray = (value) =>
     .map((entry) => entry?.trim())
     .filter(Boolean);
 
+const cleanValidCategoryValues = (value) =>
+  cleanStringArray(value).filter((entry) => CATEGORY_VALUE_SET.has(entry));
+
+const cleanCustomCategories = (value) => {
+  const unique = new Set();
+  const rejected = [];
+
+  cleanStringArray(value).forEach((rawEntry) => {
+    const entry = rawEntry.trim();
+    const normalized = entry.toLowerCase();
+
+    if (CATEGORY_LABEL_SET.has(normalized)) {
+      return;
+    }
+
+    if (!CATEGORY_ALLOWED_CHARS.test(entry)) {
+      rejected.push(entry);
+      return;
+    }
+
+    if (CATEGORY_BLOCKLIST.some((word) => normalized.includes(word))) {
+      rejected.push(entry);
+      return;
+    }
+
+    unique.add(entry);
+  });
+
+  return {
+    accepted: Array.from(unique).slice(0, 12),
+    rejected,
+  };
+};
+
+const normalizeCategoryLabel = (value) =>
+  value.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const serializeCategorySuggestion = (suggestion) => ({
+  id: suggestion._id.toString(),
+  label: suggestion.label,
+  normalizedLabel: suggestion.normalizedLabel,
+  status: suggestion.status,
+  promoted: Boolean(suggestion.promoted),
+  promotedAt: suggestion.promotedAt || null,
+  promotedBy: suggestion.promotedBy?.toString() || null,
+  usageCount: suggestion.usageCount || 0,
+  uniqueSuggesterCount: suggestion.suggestedBy?.length || 0,
+  firstSuggestedAt: suggestion.firstSuggestedAt,
+  lastSuggestedAt: suggestion.lastSuggestedAt,
+  reviewedBy: suggestion.reviewedBy?.toString() || null,
+  reviewedAt: suggestion.reviewedAt || null,
+  autoPromoteCandidate:
+    suggestion.status === 'pending' && (suggestion.usageCount || 0) >= 5,
+});
+
+const getCategories = async (req, res) => {
+  const promotedSuggestions = await CategorySuggestion.find({
+    promoted: true,
+    status: 'approved',
+  })
+    .sort({ label: 1 })
+    .select('label normalizedLabel')
+    .lean()
+    .exec();
+
+  res.json({
+    categories: categoryCatalog.map((entry) => ({
+      type: 'standard',
+      value: entry.value,
+      label: entry.label,
+    })),
+    promotedCategories: promotedSuggestions.map((entry) => ({
+      type: 'promoted',
+      value: entry.normalizedLabel,
+      label: entry.label,
+    })),
+  });
+};
+
+const recordCustomCategorySuggestions = async (profileId, categories) => {
+  const now = new Date();
+
+  await Promise.all(
+    categories.map((label) => {
+      const normalized = normalizeCategoryLabel(label);
+
+      return CategorySuggestion.findOneAndUpdate(
+        { normalizedLabel: normalized },
+        {
+          $setOnInsert: {
+            label,
+            normalizedLabel: normalized,
+            status: 'pending',
+            firstSuggestedAt: now,
+          },
+          $set: {
+            lastSuggestedAt: now,
+          },
+          $inc: {
+            usageCount: 1,
+          },
+          $addToSet: {
+            suggestedBy: profileId,
+          },
+        },
+        {
+          upsert: true,
+        },
+      ).exec();
+    }),
+  );
+};
+
 const parseOptionalNumber = (value) => {
   if (value === undefined || value === null || value === '') {
     return undefined;
@@ -32,6 +155,55 @@ const parseOptionalNumber = (value) => {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const parseBoolean = (value, defaultValue = true) => {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return value !== 'false';
+  }
+
+  return Boolean(value);
+};
+
+const cleanDraftSteps = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((step) => {
+      const type =
+        step?.type === 'tip' ||
+        step?.type === 'warning' ||
+        step?.type === 'checkpoint'
+          ? step.type
+          : 'instruction';
+
+      const title = typeof step?.title === 'string' ? step.title.trim() : '';
+      const content =
+        typeof step?.content === 'string' ? step.content.trim() : '';
+      const imageIndexes = Array.isArray(step?.imageIndexes)
+        ? step.imageIndexes
+            .map((entry) => Number.parseInt(entry, 10))
+            .filter((entry) => Number.isInteger(entry) && entry >= 0)
+        : [];
+
+      return {
+        type,
+        title,
+        content,
+        imageIndexes,
+      };
+    })
+    .filter((step) => step.title || step.content || step.imageIndexes.length);
 };
 
 const parseJsonObject = (value) => {
@@ -65,6 +237,7 @@ const getSession = (req, res) => {
             id: req.user.profile._id.toString(),
             name: req.user.profile.name,
             avatar: req.user.profile.avatar,
+            role: req.user.profile.role,
           },
         }
       : null,
@@ -104,6 +277,226 @@ const getProject = async (req, res) => {
   });
 };
 
+const getProjectDraft = async (req, res) => {
+  const draft = await ProjectDraft.findOne({
+    owner: req.user.profile._id,
+  })
+    .lean()
+    .exec();
+
+  if (!draft) {
+    res.json({
+      draft: null,
+    });
+    return;
+  }
+
+  res.json({
+    draft: {
+      title: draft.title || '',
+      description: draft.description || '',
+      buildTime:
+        draft.buildTime === undefined || draft.buildTime === null
+          ? ''
+          : String(draft.buildTime),
+      difficulty:
+        draft.difficulty === undefined || draft.difficulty === null
+          ? ''
+          : String(draft.difficulty),
+      estimatedCost:
+        draft.estimatedCost === undefined || draft.estimatedCost === null
+          ? ''
+          : String(draft.estimatedCost),
+      categories: Array.isArray(draft.categories) ? draft.categories : [],
+      otherCategory: Array.isArray(draft.otherCategory)
+        ? draft.otherCategory
+        : [],
+      materialsNeeded:
+        Array.isArray(draft.materialsNeeded) && draft.materialsNeeded.length
+          ? draft.materialsNeeded
+          : [''],
+      toolsNeeded:
+        Array.isArray(draft.toolsNeeded) && draft.toolsNeeded.length
+          ? draft.toolsNeeded
+          : [''],
+      externalLinks:
+        Array.isArray(draft.externalLinks) && draft.externalLinks.length
+          ? draft.externalLinks
+          : [''],
+      visible: parseBoolean(draft.visible, true),
+      buildSteps: Array.isArray(draft.buildSteps) ? draft.buildSteps : [],
+      buildPictures: [],
+    },
+  });
+};
+
+const saveProjectDraft = async (req, res) => {
+  const customCategories = cleanCustomCategories(req.body.otherCategory);
+
+  if (customCategories.rejected.length) {
+    res.status(400).json({
+      error:
+        'One or more custom categories are invalid or not allowed by safety policy.',
+      rejectedCategories: customCategories.rejected,
+    });
+    return;
+  }
+
+  const draftPayload = {
+    title: req.body.title?.trim() || '',
+    description: req.body.description?.trim() || '',
+    buildTime: parseOptionalNumber(req.body.buildTime),
+    difficulty: parseOptionalNumber(req.body.difficulty),
+    estimatedCost: parseOptionalNumber(req.body.estimatedCost),
+    categories: cleanValidCategoryValues(req.body.categories),
+    otherCategory: customCategories.accepted,
+    materialsNeeded: getArrayField(req.body.materialsNeeded).map(
+      (entry) => `${entry ?? ''}`,
+    ),
+    toolsNeeded: getArrayField(req.body.toolsNeeded).map(
+      (entry) => `${entry ?? ''}`,
+    ),
+    externalLinks: getArrayField(req.body.externalLinks).map(
+      (entry) => `${entry ?? ''}`,
+    ),
+    visible: parseBoolean(req.body.visible, true),
+    buildSteps: cleanDraftSteps(req.body.buildSteps),
+  };
+
+  const draft = await ProjectDraft.findOneAndUpdate(
+    { owner: req.user.profile._id },
+    {
+      $set: {
+        owner: req.user.profile._id,
+        ...draftPayload,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      runValidators: true,
+      setDefaultsOnInsert: true,
+    },
+  )
+    .lean()
+    .exec();
+
+  res.json({
+    draft: {
+      id: draft._id.toString(),
+      updatedAt: draft.updatedAt,
+    },
+  });
+};
+
+const deleteProjectDraft = async (req, res) => {
+  await ProjectDraft.deleteOne({ owner: req.user.profile._id }).exec();
+
+  res.status(204).send();
+};
+
+const getCategorySuggestions = async (req, res) => {
+  const requestedStatus = req.query.status?.trim();
+  const promotedOnly = req.query.promoted === 'true';
+  const statusFilter =
+    requestedStatus === 'approved' ||
+    requestedStatus === 'rejected' ||
+    requestedStatus === 'pending'
+      ? requestedStatus
+      : null;
+
+  const filter = statusFilter ? { status: statusFilter } : {};
+
+  if (promotedOnly) {
+    filter.promoted = true;
+  }
+
+  const suggestions = await CategorySuggestion.find(filter)
+    .sort({ usageCount: -1, lastSuggestedAt: -1 })
+    .limit(250)
+    .exec();
+
+  res.json({
+    suggestions: suggestions.map(serializeCategorySuggestion),
+  });
+};
+
+const updateCategorySuggestionStatus = async (req, res) => {
+  const status = req.body.status?.trim();
+
+  if (status !== 'approved' && status !== 'rejected' && status !== 'pending') {
+    res.status(400).json({
+      error: 'status must be one of: pending, approved, rejected',
+    });
+    return;
+  }
+
+  const suggestion = await CategorySuggestion.findById(req.params.id).exec();
+
+  if (!suggestion) {
+    res.status(404).json({ error: 'Category suggestion not found' });
+    return;
+  }
+
+  suggestion.status = status;
+  if (status !== 'approved') {
+    suggestion.promoted = false;
+    suggestion.promotedBy = null;
+    suggestion.promotedAt = null;
+  }
+  suggestion.reviewedBy = req.user.profile._id;
+  suggestion.reviewedAt = new Date();
+
+  await suggestion.save();
+
+  res.json({
+    suggestion: serializeCategorySuggestion(suggestion),
+  });
+};
+
+const promoteCategorySuggestion = async (req, res) => {
+  const suggestion = await CategorySuggestion.findById(req.params.id).exec();
+
+  if (!suggestion) {
+    res.status(404).json({ error: 'Category suggestion not found' });
+    return;
+  }
+
+  suggestion.status = 'approved';
+  suggestion.promoted = true;
+  suggestion.promotedBy = req.user.profile._id;
+  suggestion.promotedAt = new Date();
+  suggestion.reviewedBy = req.user.profile._id;
+  suggestion.reviewedAt = new Date();
+
+  await suggestion.save();
+
+  res.json({
+    suggestion: serializeCategorySuggestion(suggestion),
+  });
+};
+
+const demoteCategorySuggestion = async (req, res) => {
+  const suggestion = await CategorySuggestion.findById(req.params.id).exec();
+
+  if (!suggestion) {
+    res.status(404).json({ error: 'Category suggestion not found' });
+    return;
+  }
+
+  suggestion.promoted = false;
+  suggestion.promotedBy = null;
+  suggestion.promotedAt = null;
+  suggestion.reviewedBy = req.user.profile._id;
+  suggestion.reviewedAt = new Date();
+
+  await suggestion.save();
+
+  res.json({
+    suggestion: serializeCategorySuggestion(suggestion),
+  });
+};
+
 const createProject = async (req, res) => {
   const profile = await Profile.findById(req.user.profile._id).exec();
 
@@ -114,18 +507,28 @@ const createProject = async (req, res) => {
 
   const title = req.body.title?.trim();
   const description = req.body.description?.trim();
-  const categories = cleanStringArray(req.body.categories);
+  const categories = cleanValidCategoryValues(req.body.categories);
+  const customCategories = cleanCustomCategories(req.body.otherCategory);
   const buildInstructions = cleanStringArray(req.body.buildInstructions);
+
+  if (customCategories.rejected.length) {
+    res.status(400).json({
+      error:
+        'One or more custom categories are invalid or not allowed by safety policy.',
+      rejectedCategories: customCategories.rejected,
+    });
+    return;
+  }
 
   if (
     !title ||
     !description ||
-    !categories.length ||
+    (!categories.length && !customCategories.accepted.length) ||
     !buildInstructions.length
   ) {
     res.status(400).json({
       error:
-        'Title, description, at least one category, and at least one build instruction are required',
+        'Title, description, at least one category (standard or custom), and at least one build instruction are required',
     });
     return;
   }
@@ -135,10 +538,16 @@ const createProject = async (req, res) => {
     buildPictures = await projectPicstoS3(req.files);
   }
 
+  const normalizedCategories =
+    categories.length || !customCategories.accepted.length
+      ? categories
+      : ['Other'];
+
   const project = await Project.create({
     title,
     description,
-    categories,
+    categories: normalizedCategories,
+    otherCategory: customCategories.accepted,
     buildInstructions,
     materialsNeeded: cleanStringArray(req.body.materialsNeeded),
     toolsNeeded: cleanStringArray(req.body.toolsNeeded),
@@ -152,6 +561,13 @@ const createProject = async (req, res) => {
     ownerAvatar: profile.avatar,
     visible: req.body.visible !== 'false',
   });
+
+  if (customCategories.accepted.length) {
+    await recordCustomCategorySuggestions(
+      req.user.profile._id,
+      customCategories.accepted,
+    );
+  }
 
   res.status(201).json({
     project: serializeProject(project),
@@ -173,18 +589,28 @@ const updateProject = async (req, res) => {
 
   const title = req.body.title?.trim();
   const description = req.body.description?.trim();
-  const categories = cleanStringArray(req.body.categories);
+  const categories = cleanValidCategoryValues(req.body.categories);
+  const customCategories = cleanCustomCategories(req.body.otherCategory);
   const buildInstructions = cleanStringArray(req.body.buildInstructions);
+
+  if (customCategories.rejected.length) {
+    res.status(400).json({
+      error:
+        'One or more custom categories are invalid or not allowed by safety policy.',
+      rejectedCategories: customCategories.rejected,
+    });
+    return;
+  }
 
   if (
     !title ||
     !description ||
-    !categories.length ||
+    (!categories.length && !customCategories.accepted.length) ||
     !buildInstructions.length
   ) {
     res.status(400).json({
       error:
-        'Title, description, at least one category, and at least one build instruction are required',
+        'Title, description, at least one category (standard or custom), and at least one build instruction are required',
     });
     return;
   }
@@ -195,9 +621,15 @@ const updateProject = async (req, res) => {
     buildPictures = [...buildPictures, ...uploadedPictures];
   }
 
+  const normalizedCategories =
+    categories.length || !customCategories.accepted.length
+      ? categories
+      : ['Other'];
+
   project.title = title;
   project.description = description;
-  project.categories = categories;
+  project.categories = normalizedCategories;
+  project.otherCategory = customCategories.accepted;
   project.buildInstructions = buildInstructions;
   project.materialsNeeded = cleanStringArray(req.body.materialsNeeded);
   project.toolsNeeded = cleanStringArray(req.body.toolsNeeded);
@@ -209,6 +641,13 @@ const updateProject = async (req, res) => {
   project.visible = req.body.visible !== 'false';
 
   await project.save();
+
+  if (customCategories.accepted.length) {
+    await recordCustomCategorySuggestions(
+      req.user.profile._id,
+      customCategories.accepted,
+    );
+  }
 
   res.json({
     project: serializeProject(project, { includeComments: true }),
@@ -521,15 +960,23 @@ export {
   addChatMessage,
   createChat,
   createProject,
+  deleteProjectDraft,
   getChat,
+  getCategories,
+  getCategorySuggestions,
+  demoteCategorySuggestion,
   getChats,
   getProfile,
   getProfiles,
+  getProjectDraft,
   getProject,
   getProjects,
   getSession,
   healthcheck,
+  promoteCategorySuggestion,
+  saveProjectDraft,
   searchProjects,
+  updateCategorySuggestionStatus,
   updateProject,
   updateProfile,
 };

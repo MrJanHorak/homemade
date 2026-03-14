@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as apiCtrl from '../controllers/api.js';
-import { isApiLoggedIn } from '../middleware/middleware.js';
+import { isApiAdmin, isApiLoggedIn } from '../middleware/middleware.js';
 import multer from 'multer';
 
 const router = Router();
@@ -10,9 +10,13 @@ const profileUpload = multer({ storage }).single('avatar');
 
 router.get('/health', apiCtrl.healthcheck);
 router.get('/session/current', apiCtrl.getSession);
+router.get('/categories', apiCtrl.getCategories);
 
 router.get('/projects', apiCtrl.getProjects);
 router.post('/projects', isApiLoggedIn, upload, apiCtrl.createProject);
+router.get('/projects/draft', isApiLoggedIn, apiCtrl.getProjectDraft);
+router.put('/projects/draft', isApiLoggedIn, apiCtrl.saveProjectDraft);
+router.delete('/projects/draft', isApiLoggedIn, apiCtrl.deleteProjectDraft);
 router.get('/projects/:id', apiCtrl.getProject);
 router.put('/projects/:id', isApiLoggedIn, upload, apiCtrl.updateProject);
 router.post('/projects/:id/comments', isApiLoggedIn, apiCtrl.addProjectComment);
@@ -27,6 +31,27 @@ router.put(
 );
 
 router.get('/search', apiCtrl.searchProjects);
+
+router.get(
+  '/admin/category-suggestions',
+  isApiAdmin,
+  apiCtrl.getCategorySuggestions,
+);
+router.put(
+  '/admin/category-suggestions/:id',
+  isApiAdmin,
+  apiCtrl.updateCategorySuggestionStatus,
+);
+router.post(
+  '/admin/category-suggestions/:id/promote',
+  isApiAdmin,
+  apiCtrl.promoteCategorySuggestion,
+);
+router.post(
+  '/admin/category-suggestions/:id/demote',
+  isApiAdmin,
+  apiCtrl.demoteCategorySuggestion,
+);
 
 router.get('/chats', isApiLoggedIn, apiCtrl.getChats);
 router.get('/chats/:chatId', isApiLoggedIn, apiCtrl.getChat);
