@@ -8,7 +8,9 @@
   --line: rgba(0, 0, 0, 0.18);
   --accent: #000;
   --accent-2: #d1b357;
-  --shadow: 15px 15px 30px rgba(16, 16, 16, 0.46), -15px -15px 30px #a1c406;
+  --shadow:
+    15px 15px 30px rgba(16, 16, 16, 0.46),
+    -15px -15px 30px rgba(255, 229, 96, 0.92);
   --radius-lg: 28px;
   --radius-md: 20px;
   --radius-sm: 14px;
