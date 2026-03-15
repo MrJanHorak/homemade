@@ -34,6 +34,8 @@ const ChatShell = ({ chatId }) => {
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editText, setEditText] = useState('');
 
   const returnTo = useMemo(
     () => (chatId ? `/chats/${chatId}` : '/chats'),
@@ -175,6 +177,58 @@ const ChatShell = ({ chatId }) => {
     }
   };
 
+  const handleHideChat = async (hideChatId) => {
+    await fetch(`${API_BASE_URL}/api/chats/${hideChatId}/hide`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    setChats((prev) => prev.filter((c) => c.id !== hideChatId));
+    if (chatId === hideChatId) {
+      setActiveChat(null);
+    }
+  };
+
+  const handleEditStart = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditText(msg.message);
+  };
+
+  const handleEditCancel = () => {
+    setEditingMessageId(null);
+    setEditText('');
+  };
+
+  const handleEditSave = async (messageId) => {
+    if (!editText.trim() || !chatId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/chats/${chatId}/messages/${messageId}`,
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: editText }),
+        },
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        setError(payload.error || 'Unable to edit message');
+        return;
+      }
+
+      const payload = await response.json();
+      setActiveChat(payload.chat);
+      setEditingMessageId(null);
+      setEditText('');
+    } catch {
+      setError('Unable to edit message');
+    }
+  };
+
   if (isLoading) {
     return (
       <section className='section-panel section-panel--tight'>
@@ -217,28 +271,37 @@ const ChatShell = ({ chatId }) => {
         <aside className='chat-sidebar'>
           {chats.length ? (
             chats.map((chat) => (
-              <Link
-                key={chat.id}
-                href={`/chats/${chat.id}`}
-                className={`chat-sidebar__item ${chatId === chat.id ? 'chat-sidebar__item--active' : ''}`}
-              >
-                <img
-                  src={
-                    chat.otherUser?.avatar ||
-                    'https://placehold.co/100x100?text=HM'
-                  }
-                  alt={chat.otherUser?.name || 'Chat user'}
-                  className='chat-sidebar__avatar'
-                />
-                <div>
-                  <strong>{chat.otherUser?.name || 'Conversation'}</strong>
-                  <p>
-                    {chat.messages.length
-                      ? chat.messages.at(-1)?.message
-                      : 'No messages yet'}
-                  </p>
-                </div>
-              </Link>
+              <div key={chat.id} className='chat-sidebar__item-wrapper'>
+                <Link
+                  href={`/chats/${chat.id}`}
+                  className={`chat-sidebar__item ${chatId === chat.id ? 'chat-sidebar__item--active' : ''}`}
+                >
+                  <img
+                    src={
+                      chat.otherUser?.avatar ||
+                      'https://placehold.co/100x100?text=HM'
+                    }
+                    alt={chat.otherUser?.name || 'Chat user'}
+                    className='chat-sidebar__avatar'
+                  />
+                  <div>
+                    <strong>{chat.otherUser?.name || 'Conversation'}</strong>
+                    <p>
+                      {chat.messages.length
+                        ? chat.messages.at(-1)?.message
+                        : 'No messages yet'}
+                    </p>
+                  </div>
+                </Link>
+                <button
+                  className='chat-sidebar__hide-btn'
+                  onClick={() => handleHideChat(chat.id)}
+                  title='Hide conversation'
+                  aria-label='Hide conversation'
+                >
+                  ✕
+                </button>
+              </div>
             ))
           ) : (
             <p className='empty-copy'>
@@ -267,7 +330,51 @@ const ChatShell = ({ chatId }) => {
                         {!isMine ? (
                           <strong>{entry.user?.name || 'User'}</strong>
                         ) : null}
-                        <p>{entry.message}</p>
+
+                        {editingMessageId === entry.id ? (
+                          <form
+                            className='chat-bubble__edit-form'
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              handleEditSave(entry.id);
+                            }}
+                          >
+                            <textarea
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              autoFocus
+                            />
+                            <div className='chat-bubble__edit-actions'>
+                              <button type='submit' className='button button--small'>
+                                Save
+                              </button>
+                              <button
+                                type='button'
+                                className='button button--ghost button--small'
+                                onClick={handleEditCancel}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <p>{entry.message}</p>
+                            {entry.edited ? (
+                              <span className='chat-bubble__edited'>(edited)</span>
+                            ) : null}
+                            {isMine ? (
+                              <button
+                                className='chat-bubble__edit-btn'
+                                onClick={() => handleEditStart(entry)}
+                                aria-label='Edit message'
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+                          </>
+                        )}
+
                         <span>{formatTimestamp(entry.timestamp)}</span>
                       </article>
                     );

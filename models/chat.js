@@ -12,8 +12,11 @@ const chatSchema = new Schema(
         user: { type: Schema.Types.ObjectId, ref: 'Profile' },
         message: String,
         timestamp: Date,
+        edited: { type: Boolean, default: false },
+        editedAt: Date,
       },
     ],
+    hiddenBy: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
   },
   {
     timestamps: true,

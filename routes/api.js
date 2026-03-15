@@ -56,6 +56,8 @@ router.post(
 router.get('/chats', isApiLoggedIn, apiCtrl.getChats);
 router.get('/chats/:chatId', isApiLoggedIn, apiCtrl.getChat);
 router.post('/chats', isApiLoggedIn, apiCtrl.createChat);
+router.post('/chats/:chatId/hide', isApiLoggedIn, apiCtrl.hideChat);
 router.post('/chats/:chatId/messages', isApiLoggedIn, apiCtrl.addChatMessage);
+router.put('/chats/:chatId/messages/:messageId', isApiLoggedIn, apiCtrl.editChatMessage);
 
 export { router };

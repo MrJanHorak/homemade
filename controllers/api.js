@@ -827,6 +827,7 @@ const getChats = async (req, res) => {
   const currentProfileId = req.user.profile._id.toString();
   const chats = await Chat.find({
     $or: [{ user1: req.user.profile._id }, { user2: req.user.profile._id }],
+    hiddenBy: { $nin: [req.user.profile._id] },
   })
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
@@ -935,6 +936,12 @@ const addChatMessage = async (req, res) => {
     timestamp: new Date(),
   });
 
+  // Unhide chat for the recipient so it reappears in their inbox
+  const recipientId = chat.user1?.equals(currentProfileId) ? chat.user2 : chat.user1;
+  if (recipientId && chat.hiddenBy?.length) {
+    chat.hiddenBy = chat.hiddenBy.filter((id) => !id.equals(recipientId));
+  }
+
   await chat.save();
 
   const populatedChat = await Chat.findById(chat._id)
@@ -951,6 +958,86 @@ const addChatMessage = async (req, res) => {
   });
 };
 
+const hideChat = async (req, res) => {
+  const chat = await Chat.findById(req.params.chatId).exec();
+
+  if (!chat) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
+  const currentProfileId = req.user.profile._id;
+  const isParticipant =
+    chat.user1?.equals(currentProfileId) || chat.user2?.equals(currentProfileId);
+
+  if (!isParticipant) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const alreadyHidden = (chat.hiddenBy || []).some((id) =>
+    id.equals(currentProfileId),
+  );
+
+  if (!alreadyHidden) {
+    chat.hiddenBy.push(currentProfileId);
+    await chat.save();
+  }
+
+  res.json({ ok: true });
+};
+
+const editChatMessage = async (req, res) => {
+  const chat = await Chat.findById(req.params.chatId).exec();
+
+  if (!chat) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
+  const currentProfileId = req.user.profile._id;
+  const isParticipant =
+    chat.user1?.equals(currentProfileId) || chat.user2?.equals(currentProfileId);
+
+  if (!isParticipant) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const msg = chat.messages.id(req.params.messageId);
+
+  if (!msg) {
+    res.status(404).json({ error: 'Message not found' });
+    return;
+  }
+
+  if (!msg.user?.equals(currentProfileId)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const newText = req.body.message?.trim();
+
+  if (!newText) {
+    res.status(400).json({ error: 'Message is required' });
+    return;
+  }
+
+  msg.message = newText;
+  msg.edited = true;
+  msg.editedAt = new Date();
+
+  await chat.save();
+
+  const populatedChat = await Chat.findById(chat._id)
+    .populate('user1', 'name avatar')
+    .populate('user2', 'name avatar')
+    .populate({ path: 'messages.user', select: 'name avatar' })
+    .exec();
+
+  res.json({ chat: serializeChat(populatedChat, currentProfileId.toString()) });
+};
+
 const healthcheck = (req, res) => {
   res.json({ ok: true });
 };
@@ -959,6 +1046,8 @@ export {
   addProjectComment,
   addChatMessage,
   createChat,
+  editChatMessage,
+  hideChat,
   createProject,
   deleteProjectDraft,
   getChat,

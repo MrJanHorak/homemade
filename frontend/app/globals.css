@@ -356,6 +356,12 @@ h3 {
   font-size: 0.9rem;
 }
 
+.button--small {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+}
+
 .button--ghost {
   background: rgba(255, 255, 255, 0.65);
   color: var(--ink);
@@ -1435,6 +1441,100 @@ h3 {
   justify-self: end;
   border-radius: 16px 16px 4px 16px;
   background: rgba(255, 241, 164, 0.95);
+}
+
+.chat-bubble__edit-btn {
+  align-self: end;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.chat-bubble:hover .chat-bubble__edit-btn {
+  opacity: 1;
+}
+
+.chat-bubble__edit-btn:hover {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.chat-bubble__edited {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
+.chat-bubble__edit-form {
+  display: grid;
+  gap: 8px;
+}
+
+.chat-bubble__edit-form textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  resize: vertical;
+  font: inherit;
+}
+
+.chat-bubble__edit-form textarea:focus {
+  outline: none;
+  border-color: rgba(0, 0, 0, 0.42);
+}
+
+.chat-bubble__edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Sidebar hide button */
+.chat-sidebar__item-wrapper {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-sidebar__item-wrapper .chat-sidebar__item {
+  min-width: 0;
+}
+
+.chat-sidebar__hide-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.chat-sidebar__item-wrapper:hover .chat-sidebar__hide-btn {
+  opacity: 1;
+}
+
+.chat-sidebar__hide-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--ink);
 }
 
 .helper-copy {
