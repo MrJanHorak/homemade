@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 
 const emptySession = {
@@ -36,6 +36,7 @@ const ChatShell = ({ chatId }) => {
   const [error, setError] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState('');
+  const composerRef = useRef(null);
 
   const returnTo = useMemo(
     () => (chatId ? `/chats/${chatId}` : '/chats'),
@@ -169,6 +170,9 @@ const ChatShell = ({ chatId }) => {
       const payload = await response.json();
       setActiveChat(payload.chat);
       setMessage('');
+      if (composerRef.current) {
+        composerRef.current.style.height = 'auto';
+      }
       await loadChats();
     } catch (sendError) {
       setError(sendError.message);
@@ -373,7 +377,23 @@ const ChatShell = ({ chatId }) => {
                                 className='chat-bubble__edit-btn'
                                 onClick={() => handleEditStart(entry)}
                                 aria-label='Edit message'
+                                title='Edit message'
                               >
+                                <svg
+                                  xmlns='http://www.w3.org/2000/svg'
+                                  width='14'
+                                  height='14'
+                                  viewBox='0 0 24 24'
+                                  fill='none'
+                                  stroke='currentColor'
+                                  strokeWidth='2'
+                                  strokeLinecap='round'
+                                  strokeLinejoin='round'
+                                  aria-hidden='true'
+                                >
+                                  <path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' />
+                                  <path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' />
+                                </svg>
                                 Edit
                               </button>
                             ) : null}
@@ -393,10 +413,21 @@ const ChatShell = ({ chatId }) => {
                 className='chat-thread__composer'
                 onSubmit={handleSendMessage}
               >
-                <input
-                  type='text'
+                <textarea
+                  ref={composerRef}
+                  rows={1}
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
+                  onInput={(event) => {
+                    event.target.style.height = 'auto';
+                    event.target.style.height = `${event.target.scrollHeight}px`;
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSendMessage(event);
+                    }
+                  }}
                   placeholder='Type a message...'
                 />
                 <button type='submit' className='button' disabled={isSending}>

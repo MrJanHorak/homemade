@@ -1402,7 +1402,19 @@ h3 {
   border-top: 1px solid rgba(0, 0, 0, 0.1);
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: end;
   gap: 10px;
+}
+
+.chat-thread__composer textarea {
+  resize: none;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  padding: 8px 12px;
+  line-height: 1.5;
+  min-height: 38px;
+  background: var(--panel);
 }
 
 .chat-thread__messages {
