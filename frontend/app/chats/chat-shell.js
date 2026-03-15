@@ -345,7 +345,10 @@ const ChatShell = ({ chatId }) => {
                               autoFocus
                             />
                             <div className='chat-bubble__edit-actions'>
-                              <button type='submit' className='button button--small'>
+                              <button
+                                type='submit'
+                                className='button button--small'
+                              >
                                 Save
                               </button>
                               <button
@@ -361,7 +364,9 @@ const ChatShell = ({ chatId }) => {
                           <>
                             <p>{entry.message}</p>
                             {entry.edited ? (
-                              <span className='chat-bubble__edited'>(edited)</span>
+                              <span className='chat-bubble__edited'>
+                                (edited)
+                              </span>
                             ) : null}
                             {isMine ? (
                               <button

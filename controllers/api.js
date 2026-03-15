@@ -937,7 +937,9 @@ const addChatMessage = async (req, res) => {
   });
 
   // Unhide chat for the recipient so it reappears in their inbox
-  const recipientId = chat.user1?.equals(currentProfileId) ? chat.user2 : chat.user1;
+  const recipientId = chat.user1?.equals(currentProfileId)
+    ? chat.user2
+    : chat.user1;
   if (recipientId && chat.hiddenBy?.length) {
     chat.hiddenBy = chat.hiddenBy.filter((id) => !id.equals(recipientId));
   }
@@ -968,7 +970,8 @@ const hideChat = async (req, res) => {
 
   const currentProfileId = req.user.profile._id;
   const isParticipant =
-    chat.user1?.equals(currentProfileId) || chat.user2?.equals(currentProfileId);
+    chat.user1?.equals(currentProfileId) ||
+    chat.user2?.equals(currentProfileId);
 
   if (!isParticipant) {
     res.status(403).json({ error: 'Forbidden' });
@@ -997,7 +1000,8 @@ const editChatMessage = async (req, res) => {
 
   const currentProfileId = req.user.profile._id;
   const isParticipant =
-    chat.user1?.equals(currentProfileId) || chat.user2?.equals(currentProfileId);
+    chat.user1?.equals(currentProfileId) ||
+    chat.user2?.equals(currentProfileId);
 
   if (!isParticipant) {
     res.status(403).json({ error: 'Forbidden' });

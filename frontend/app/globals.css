@@ -1456,7 +1456,9 @@ h3 {
   text-transform: uppercase;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 120ms ease, background 120ms ease;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease;
 }
 
 .chat-bubble:hover .chat-bubble__edit-btn {
@@ -1525,7 +1527,10 @@ h3 {
   font-size: 0.72rem;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .chat-sidebar__item-wrapper:hover .chat-sidebar__hide-btn {
