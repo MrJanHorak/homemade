@@ -10,6 +10,7 @@ const profileUpload = multer({ storage }).single('avatar');
 
 router.get('/health', apiCtrl.healthcheck);
 router.get('/session/current', apiCtrl.getSession);
+router.get('/auth/providers', apiCtrl.getAuthProviders);
 router.get('/categories', apiCtrl.getCategories);
 
 router.get('/projects', apiCtrl.getProjects);

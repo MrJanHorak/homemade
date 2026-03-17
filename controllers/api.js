@@ -1,4 +1,5 @@
 import { Chat } from '../models/chat.js';
+import passport from 'passport';
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
 import { ProjectDraft } from '../models/projectDraft.js';
@@ -224,8 +225,40 @@ const parseJsonObject = (value) => {
 const getBackendBaseUrl = (req) =>
   process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
 
+const getEnabledAuthProviders = (req) => {
+  const backendBaseUrl = getBackendBaseUrl(req);
+  const providers = {
+    google: {
+      enabled: Boolean(passport._strategy('google')),
+      href: `${backendBaseUrl}/auth/google`,
+    },
+    github: {
+      enabled: Boolean(passport._strategy('github')),
+      href: `${backendBaseUrl}/auth/github`,
+    },
+    microsoft: {
+      enabled: Boolean(passport._strategy('microsoft')),
+      href: `${backendBaseUrl}/auth/microsoft`,
+    },
+    apple: {
+      enabled: Boolean(passport._strategy('apple')),
+      href: `${backendBaseUrl}/auth/apple`,
+    },
+  };
+
+  return providers;
+};
+
+const getAuthProviders = (req, res) => {
+  res.json({
+    providers: getEnabledAuthProviders(req),
+  });
+};
+
 const getSession = (req, res) => {
   const authenticated = req.isAuthenticated();
+  const backendBaseUrl = getBackendBaseUrl(req);
+  const providers = getEnabledAuthProviders(req);
 
   res.json({
     authenticated,
@@ -242,9 +275,19 @@ const getSession = (req, res) => {
         }
       : null,
     links: {
-      login: `${getBackendBaseUrl(req)}/auth/google`,
-      logout: `${getBackendBaseUrl(req)}/auth/logout`,
+      login: `${backendBaseUrl}/auth/google`,
+      logout: `${backendBaseUrl}/auth/logout`,
+      googleLogin: `${backendBaseUrl}/auth/google`,
+      githubLogin: `${backendBaseUrl}/auth/github`,
+      microsoftLogin: `${backendBaseUrl}/auth/microsoft`,
+      appleLogin: `${backendBaseUrl}/auth/apple`,
+      emailLogin: `${backendBaseUrl}/auth/login`,
+      signup: `${backendBaseUrl}/auth/signup`,
+      verifyEmail: `${backendBaseUrl}/auth/verify-email`,
+      requestMagicLink: `${backendBaseUrl}/auth/magic-link/request`,
+      consumeMagicLink: `${backendBaseUrl}/auth/magic-link/consume`,
     },
+    providers,
   });
 };
 
@@ -1056,6 +1099,7 @@ export {
   deleteProjectDraft,
   getChat,
   getCategories,
+  getAuthProviders,
   getCategorySuggestions,
   demoteCategorySuggestion,
   getChats,

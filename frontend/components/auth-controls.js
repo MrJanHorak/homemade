@@ -14,14 +14,13 @@ const AuthControls = () => {
     authenticated: false,
     user: null,
     links: {
-      login: `${API_BASE_URL}/auth/google`,
       logout: `${API_BASE_URL}/auth/logout`,
     },
   });
   const [isLoading, setIsLoading] = useState(true);
   const queryString = searchParams?.toString();
   const returnTo = `${pathname || '/'}${queryString ? `?${queryString}` : ''}`;
-  const loginHref = `${session.links.login}?returnTo=${encodeURIComponent(returnTo)}`;
+  const loginHref = `/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
 
   useEffect(() => {
     let isMounted = true;
