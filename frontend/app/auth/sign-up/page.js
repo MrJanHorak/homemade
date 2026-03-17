@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api';
 
@@ -25,7 +25,7 @@ const postJson = async (path, payload) => {
   return data;
 };
 
-const SignUpPage = () => {
+const SignUpContent = () => {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') || '/';
   const googleHref = `${API_BASE_URL}/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
@@ -201,5 +201,20 @@ const SignUpPage = () => {
     </main>
   );
 };
+
+const SignUpPage = () => (
+  <Suspense
+    fallback={
+      <main className='page-stack'>
+        <section className='section-panel section-panel--tight auth-shell'>
+          <p className='eyebrow'>Sign up</p>
+          <h1>Loading sign-up form...</h1>
+        </section>
+      </main>
+    }
+  >
+    <SignUpContent />
+  </Suspense>
+);
 
 export default SignUpPage;

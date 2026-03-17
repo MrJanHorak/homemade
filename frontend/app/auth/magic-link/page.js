@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api';
 
-const MagicLinkPage = () => {
+const MagicLinkContent = () => {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
   const returnTo = useMemo(
@@ -70,5 +70,20 @@ const MagicLinkPage = () => {
     </main>
   );
 };
+
+const MagicLinkPage = () => (
+  <Suspense
+    fallback={
+      <main className='page-stack'>
+        <section className='section-panel'>
+          <h1>Magic link sign in</h1>
+          <p>Loading your sign-in link...</p>
+        </section>
+      </main>
+    }
+  >
+    <MagicLinkContent />
+  </Suspense>
+);
 
 export default MagicLinkPage;

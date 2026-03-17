@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api';
 
-const VerifyEmailPage = () => {
+const VerifyEmailContent = () => {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
   const [status, setStatus] = useState('Verifying your email...');
@@ -63,5 +63,20 @@ const VerifyEmailPage = () => {
     </main>
   );
 };
+
+const VerifyEmailPage = () => (
+  <Suspense
+    fallback={
+      <main className='page-stack'>
+        <section className='section-panel'>
+          <h1>Email verification</h1>
+          <p>Loading verification details...</p>
+        </section>
+      </main>
+    }
+  >
+    <VerifyEmailContent />
+  </Suspense>
+);
 
 export default VerifyEmailPage;

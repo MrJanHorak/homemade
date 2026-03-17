@@ -1,0 +1,217 @@
+.rich-text-editor {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rich-text-editor__toolbar {
+  background: #f5f5f5;
+  border-bottom: 1px solid #ccc;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #ccc;
+  margin: 0 4px;
+}
+
+.rich-text-editor__toolbar button {
+  padding: 6px 10px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.rich-text-editor__toolbar button:hover:not(:disabled) {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+.rich-text-editor__toolbar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rich-text-editor__toolbar button.is-active {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.rich-text-editor__content {
+  padding: 12px;
+  min-height: 120px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* TipTap editor styles */
+.rich-text-editor__content .ProseMirror {
+  outline: none;
+}
+
+.rich-text-editor__content .ProseMirror p {
+  margin: 0.5em 0;
+}
+
+.rich-text-editor__content .ProseMirror h2,
+.rich-text-editor__content .ProseMirror h3 {
+  margin: 0.75em 0 0.5em 0;
+  font-weight: 600;
+}
+
+.rich-text-editor__content .ProseMirror h2 {
+  font-size: 1.5em;
+}
+
+.rich-text-editor__content .ProseMirror h3 {
+  font-size: 1.25em;
+}
+
+.rich-text-editor__content .ProseMirror ul,
+.rich-text-editor__content .ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.rich-text-editor__content .ProseMirror table {
+  width: 100%;
+  margin: 0.75em 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.rich-text-editor__content .ProseMirror th,
+.rich-text-editor__content .ProseMirror td {
+  position: relative;
+  min-width: 90px;
+  padding: 8px 10px;
+  border: 1px solid #d6d6d6;
+  vertical-align: top;
+}
+
+.rich-text-editor__content .ProseMirror th {
+  background: #f3f3f3;
+  font-weight: 600;
+  text-align: left;
+}
+
+.rich-text-editor__content .ProseMirror td p,
+.rich-text-editor__content .ProseMirror th p {
+  margin: 0;
+}
+
+.rich-text-editor__content .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 123, 255, 0.12);
+  pointer-events: none;
+}
+
+.rich-text-editor__content .ProseMirror li {
+  margin: 0.25em 0;
+}
+
+.rich-text-editor__content .ProseMirror code {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.rich-text-editor__content .ProseMirror pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.rich-text-editor__content .ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.rich-text-editor__content .ProseMirror blockquote {
+  border-left: 4px solid #ddd;
+  padding-left: 12px;
+  margin: 0.5em 0;
+  color: #666;
+  font-style: italic;
+}
+
+.rich-text-editor__content .ProseMirror strong {
+  font-weight: 600;
+}
+
+.rich-text-editor__content .ProseMirror em {
+  font-style: italic;
+}
+
+.rich-text-editor__content .ProseMirror s {
+  text-decoration: line-through;
+}
+
+/* Placeholder styling */
+.rich-text-editor__content .ProseMirror.is-empty::before {
+  content: attr(data-placeholder);
+  color: #999;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Syntax highlighting for code blocks */
+.rich-text-editor__content .ProseMirror .hljs {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.rich-text-editor__content .ProseMirror .hljs-string {
+  color: #ce9178;
+}
+
+.rich-text-editor__content .ProseMirror .hljs-number {
+  color: #b5cea8;
+}
+
+.rich-text-editor__content .ProseMirror .hljs-literal {
+  color: #569cd6;
+}
+
+.rich-text-editor__content .ProseMirror .hljs-attr {
+  color: #9cdcfe;
+}
+
+.rich-text-editor__content .ProseMirror .hljs-title {
+  color: #4ec9b0;
+}
+
+.rich-text-editor__content .ProseMirror .hljs-params {
+  color: #d4d4d4;
+}

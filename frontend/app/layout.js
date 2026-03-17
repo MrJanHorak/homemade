@@ -1,6 +1,7 @@
 import { Arvo, Source_Sans_3 } from 'next/font/google';
 import SiteHeader from '@/components/site-header';
 import './globals.css';
+import '../components/rich-text-editor.css';
 
 const displayFont = Arvo({
   subsets: ['latin'],

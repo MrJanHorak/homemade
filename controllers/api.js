@@ -1,5 +1,6 @@
 import { Chat } from '../models/chat.js';
 import passport from 'passport';
+import sanitizeHtml from 'sanitize-html';
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
 import { ProjectDraft } from '../models/projectDraft.js';
@@ -18,6 +19,35 @@ const CATEGORY_VALUE_SET = new Set(categoryCatalog.map((entry) => entry.value));
 const CATEGORY_LABEL_SET = new Set(
   categoryCatalog.map((entry) => entry.label.toLowerCase()),
 );
+const RICH_TEXT_ALLOWED_TAGS = [
+  'a',
+  'blockquote',
+  'br',
+  'code',
+  'em',
+  'h2',
+  'h3',
+  'li',
+  'ol',
+  'p',
+  'pre',
+  's',
+  'strong',
+  'table',
+  'tbody',
+  'td',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+];
+const RICH_TEXT_ALLOWED_ATTRIBUTES = {
+  a: ['href', 'target', 'rel'],
+  code: ['class'],
+  pre: ['class'],
+  td: ['colspan', 'rowspan'],
+  th: ['colspan', 'rowspan'],
+};
 
 const getArrayField = (value) => {
   if (Array.isArray(value)) {
@@ -35,6 +65,28 @@ const cleanStringArray = (value) =>
   getArrayField(value)
     .map((entry) => entry?.trim())
     .filter(Boolean);
+
+const sanitizeRichText = (value) =>
+  sanitizeHtml(`${value || ''}`, {
+    allowedTags: RICH_TEXT_ALLOWED_TAGS,
+    allowedAttributes: RICH_TEXT_ALLOWED_ATTRIBUTES,
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowedSchemesAppliedToAttributes: ['href'],
+  }).trim();
+
+const getPlainTextFromRichText = (value) =>
+  sanitizeHtml(`${value || ''}`, {
+    allowedTags: [],
+    allowedAttributes: {},
+  })
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const cleanRichTextArray = (value) =>
+  getArrayField(value)
+    .map((entry) => sanitizeRichText(entry))
+    .filter((entry) => getPlainTextFromRichText(entry));
 
 const cleanValidCategoryValues = (value) =>
   cleanStringArray(value).filter((entry) => CATEGORY_VALUE_SET.has(entry));
@@ -189,8 +241,7 @@ const cleanDraftSteps = (value) => {
           : 'instruction';
 
       const title = typeof step?.title === 'string' ? step.title.trim() : '';
-      const content =
-        typeof step?.content === 'string' ? step.content.trim() : '';
+      const content = sanitizeRichText(step?.content);
       const imageIndexes = Array.isArray(step?.imageIndexes)
         ? step.imageIndexes
             .map((entry) => Number.parseInt(entry, 10))
@@ -204,7 +255,12 @@ const cleanDraftSteps = (value) => {
         imageIndexes,
       };
     })
-    .filter((step) => step.title || step.content || step.imageIndexes.length);
+    .filter(
+      (step) =>
+        step.title ||
+        getPlainTextFromRichText(step.content) ||
+        step.imageIndexes.length,
+    );
 };
 
 const parseJsonObject = (value) => {
@@ -387,7 +443,7 @@ const saveProjectDraft = async (req, res) => {
 
   const draftPayload = {
     title: req.body.title?.trim() || '',
-    description: req.body.description?.trim() || '',
+    description: sanitizeRichText(req.body.description),
     buildTime: parseOptionalNumber(req.body.buildTime),
     difficulty: parseOptionalNumber(req.body.difficulty),
     estimatedCost: parseOptionalNumber(req.body.estimatedCost),
@@ -549,10 +605,10 @@ const createProject = async (req, res) => {
   }
 
   const title = req.body.title?.trim();
-  const description = req.body.description?.trim();
+  const description = sanitizeRichText(req.body.description);
   const categories = cleanValidCategoryValues(req.body.categories);
   const customCategories = cleanCustomCategories(req.body.otherCategory);
-  const buildInstructions = cleanStringArray(req.body.buildInstructions);
+  const buildInstructions = cleanRichTextArray(req.body.buildInstructions);
 
   if (customCategories.rejected.length) {
     res.status(400).json({
@@ -565,7 +621,7 @@ const createProject = async (req, res) => {
 
   if (
     !title ||
-    !description ||
+    !getPlainTextFromRichText(description) ||
     (!categories.length && !customCategories.accepted.length) ||
     !buildInstructions.length
   ) {
@@ -631,10 +687,10 @@ const updateProject = async (req, res) => {
   }
 
   const title = req.body.title?.trim();
-  const description = req.body.description?.trim();
+  const description = sanitizeRichText(req.body.description);
   const categories = cleanValidCategoryValues(req.body.categories);
   const customCategories = cleanCustomCategories(req.body.otherCategory);
-  const buildInstructions = cleanStringArray(req.body.buildInstructions);
+  const buildInstructions = cleanRichTextArray(req.body.buildInstructions);
 
   if (customCategories.rejected.length) {
     res.status(400).json({
@@ -647,7 +703,7 @@ const updateProject = async (req, res) => {
 
   if (
     !title ||
-    !description ||
+    !getPlainTextFromRichText(description) ||
     (!categories.length && !customCategories.accepted.length) ||
     !buildInstructions.length
   ) {

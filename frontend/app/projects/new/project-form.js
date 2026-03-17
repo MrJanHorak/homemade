@@ -2,9 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import fallbackCategories from '@/lib/categories';
 import { API_BASE_URL } from '@/lib/api';
+
+const RichTextEditor = dynamic(() => import('@/components/rich-text-editor'), {
+  ssr: false,
+});
 
 const LOCAL_DRAFT_FALLBACK_KEY = 'homemade.project-form-draft.v1';
 const CATEGORY_BLOCKLIST = ['porn', 'xxx', 'nsfw', 'racist', 'hate', 'nazi'];
@@ -122,6 +127,21 @@ const getStoredPictureName = (url, fallbackLabel) => {
   } catch {
     return rawName;
   }
+};
+
+const getPlainTextFromRichText = (value) =>
+  `${value || ''}`
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const hasMeaningfulRichText = (value) =>
+  Boolean(getPlainTextFromRichText(value));
+
+const normalizeRichText = (value) => {
+  const trimmed = `${value || ''}`.trim();
+  return trimmed || '<p></p>';
 };
 
 const ProjectForm = ({ mode = 'create', projectId = null }) => {
@@ -810,13 +830,22 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
     setError('');
 
     try {
+      if (!form.title.trim()) {
+        throw new Error('Project title is required');
+      }
+
+      if (!hasMeaningfulRichText(form.description)) {
+        throw new Error('Description is required');
+      }
+
       const payload = new FormData();
       const structuredInstructions = form.buildSteps
         .map((step, index) => {
           const cleanedTitle = step.title.trim();
-          const cleanedContent = step.content.trim();
+          const cleanedContent = normalizeRichText(step.content);
+          const hasContent = hasMeaningfulRichText(cleanedContent);
 
-          if (!cleanedTitle && !cleanedContent) {
+          if (!cleanedTitle && !hasContent) {
             return '';
           }
 
@@ -838,13 +867,18 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
       const fallbackInstructions = form.buildInstructions
         .filter((value) => value.trim())
         .map((value) => value.trim());
+
+      if (!structuredInstructions.length && !fallbackInstructions.length) {
+        throw new Error('Add at least one build step before publishing');
+      }
+
       const instructionsToSend =
         structuredInstructions.length > 0
           ? structuredInstructions
           : fallbackInstructions;
 
       payload.append('title', form.title);
-      payload.append('description', form.description);
+      payload.append('description', normalizeRichText(form.description));
       payload.append('buildTime', form.buildTime);
       payload.append('difficulty', form.difficulty);
       payload.append('estimatedCost', form.estimatedCost);
@@ -1048,18 +1082,15 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
               />
             </label>
 
-            <label>
-              Description
-              <textarea
-                rows='5'
-                value={form.description}
-                onChange={(event) =>
-                  updateField('description', event.target.value)
-                }
-                placeholder='What did you make, why did you make it, and what should people know before starting?'
-                required
-              />
-            </label>
+            <label>Description</label>
+            <RichTextEditor
+              value={form.description}
+              onChange={(html) => updateField('description', html)}
+              placeholder='What did you make, why did you make it, and what should people know before starting?'
+            />
+            <p className='helper-copy'>
+              Supports paragraphs, lists, tables, quotes, and code snippets.
+            </p>
           </div>
         </div>
 
@@ -1419,21 +1450,18 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
                     />
                   </label>
 
-                  <label>
-                    Instructions
-                    <textarea
-                      rows='4'
-                      value={step.content}
-                      placeholder='Mark and cut all base pieces, then dry-fit before glue-up.'
-                      onChange={(event) =>
-                        updateStepField(
-                          stepIndex,
-                          'content',
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </label>
+                  <label>Instructions</label>
+                  <RichTextEditor
+                    value={step.content}
+                    onChange={(html) =>
+                      updateStepField(stepIndex, 'content', html)
+                    }
+                    placeholder='Mark and cut all base pieces, then dry-fit before glue-up.'
+                  />
+                  <p className='helper-copy'>
+                    Use lists or tables for materials and checks, and code
+                    blocks if a step includes measurements or commands.
+                  </p>
                 </div>
 
                 {stepImageEntries.length ? (

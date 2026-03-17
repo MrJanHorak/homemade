@@ -1,8 +1,36 @@
 'use client';
 
+import DOMPurify from 'dompurify';
 import { useMemo, useState } from 'react';
 import CommentForm from './comment-form';
 import ProjectActions from './project-actions';
+
+const sanitizeRichText = (value) =>
+  DOMPurify.sanitize(`${value || ''}`, {
+    ALLOWED_TAGS: [
+      'a',
+      'blockquote',
+      'br',
+      'code',
+      'em',
+      'h2',
+      'h3',
+      'li',
+      'ol',
+      'p',
+      'pre',
+      's',
+      'strong',
+      'table',
+      'tbody',
+      'td',
+      'th',
+      'thead',
+      'tr',
+      'ul',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'colspan', 'rowspan', 'class'],
+  });
 
 const formatDate = (value) => {
   if (!value) {
@@ -33,6 +61,18 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
     allProjectImages.length > 0
       ? allProjectImages
       : ['https://placehold.co/1200x800?text=Homemade'];
+  const sanitizedDescription = useMemo(
+    () => sanitizeRichText(project.description),
+    [project.description],
+  );
+  const sanitizedInstructions = useMemo(
+    () =>
+      parsedInstructions.map((instruction) => ({
+        ...instruction,
+        content: sanitizeRichText(instruction.content),
+      })),
+    [parsedInstructions],
+  );
 
   const openLightbox = (images, index, title) => {
     if (!images.length) {
@@ -156,7 +196,10 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
         <div className='detail-hero__content'>
           <p className='eyebrow'>Project detail</p>
           <h1>{project.title}</h1>
-          <p className='detail-copy'>{project.description}</p>
+          <div
+            className='detail-copy rich-content'
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+          />
 
           <div className='metric-grid'>
             <div className='metric-card'>
@@ -199,7 +242,7 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
         <article className='section-panel'>
           <h2>Build instructions</h2>
           <ol className='step-list'>
-            {parsedInstructions.map((instruction, index) => {
+            {sanitizedInstructions.map((instruction, index) => {
               const stepNumber = index + 1;
               const hasImages = instruction.images.length > 0;
 
@@ -251,7 +294,10 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
                         {instruction.label}
                       </strong>
                     ) : null}
-                    <p className='step-card__content'>{instruction.content}</p>
+                    <div
+                      className='step-card__content rich-content'
+                      dangerouslySetInnerHTML={{ __html: instruction.content }}
+                    />
 
                     {hasImages && instruction.imagePosition !== 'before' ? (
                       <div className='step-card__media'>
