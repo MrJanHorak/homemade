@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 import CommentForm from './comment-form';
 import ProjectActions from './project-actions';
 
+const MAX_RATING = 5;
+
 const sanitizeRichText = (value) =>
   DOMPurify.sanitize(`${value || ''}`, {
     ALLOWED_TAGS: [
@@ -42,6 +44,69 @@ const formatDate = (value) => {
     day: 'numeric',
     year: 'numeric',
   }).format(new Date(value));
+};
+
+const getSafeRating = (value) => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.min(MAX_RATING, Math.max(0, parsed));
+};
+
+const StarRating = ({ rating, ratingCount, projectId }) => {
+  const safeRating = getSafeRating(rating);
+  const gradientPrefix = `project-detail-rating-${projectId || 'project'}`;
+
+  return (
+    <div className='metric-rating'>
+      <span className='metric-rating__stars' aria-hidden='true'>
+        {Array.from({ length: MAX_RATING }, (_, index) => {
+          const fillPercent = Math.max(
+            0,
+            Math.min(100, (safeRating - index) * 100),
+          );
+          const gradientId = `${gradientPrefix}-star-${index}`;
+
+          return (
+            <svg
+              key={gradientId}
+              viewBox='0 0 24 24'
+              className='metric-rating__star'
+              role='presentation'
+            >
+              <defs>
+                <linearGradient
+                  id={gradientId}
+                  x1='0%'
+                  y1='0%'
+                  x2='100%'
+                  y2='0%'
+                >
+                  <stop offset={`${fillPercent}%`} stopColor='currentColor' />
+                  <stop offset={`${fillPercent}%`} stopColor='transparent' />
+                </linearGradient>
+              </defs>
+              <path
+                d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'
+                fill={`url(#${gradientId})`}
+                stroke='currentColor'
+                strokeWidth='1.5'
+              />
+            </svg>
+          );
+        })}
+      </span>
+      <strong className='metric-rating__value'>
+        {safeRating.toFixed(1)}/5
+      </strong>
+      <span className='metric-rating__count'>
+        from {ratingCount || 0} ratings
+      </span>
+    </div>
+  );
 };
 
 const ProjectDetailView = ({ project, parsedInstructions }) => {
@@ -220,9 +285,11 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
             </div>
             <div className='metric-card'>
               <span className='metric-card__label'>Community rating</span>
-              <strong>
-                {project.averageRating}/5 from {project.ratingCount} ratings
-              </strong>
+              <StarRating
+                rating={project.averageRating}
+                ratingCount={project.ratingCount}
+                projectId={project.id}
+              />
             </div>
           </div>
 
@@ -361,7 +428,7 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
             </ul>
           </div>
 
-          <CommentForm projectId={project.id} />
+          <CommentForm projectId={project.id} ownerId={project.owner} />
         </aside>
       </section>
 

@@ -94,6 +94,9 @@ const AuthControls = () => {
         <Link href='/projects/new' className='account-menu__link'>
           Add project
         </Link>
+        <Link href='/projects/saved' className='account-menu__link'>
+          Saved projects
+        </Link>
         <Link
           href={`/profiles/${session.user.profile.id}`}
           className='account-menu__link'

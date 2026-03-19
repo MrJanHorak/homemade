@@ -776,6 +776,15 @@ const addProjectComment = async (req, res) => {
     return;
   }
 
+  const isOwner = project.owner?.equals(currentProfile._id);
+
+  if (isOwner && Number.isInteger(rating) && rating >= 1 && rating <= 5) {
+    res.status(403).json({
+      error: 'You cannot rate your own project',
+    });
+    return;
+  }
+
   if (Number.isInteger(rating) && rating >= 1 && rating <= 5) {
     project.rating.push(rating);
   }
@@ -794,6 +803,126 @@ const addProjectComment = async (req, res) => {
   res.status(201).json({
     project: serializeProject(project, { includeComments: true }),
   });
+};
+
+const getProjectSaveStatus = async (req, res) => {
+  const project = await Project.findById(req.params.id).select('_id').exec();
+
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const profile = await Profile.findById(req.user.profile._id)
+    .select('saves')
+    .exec();
+
+  if (!profile) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+
+  const saved = (profile.saves || []).some((entry) =>
+    entry.equals(project._id),
+  );
+
+  res.json({ saved });
+};
+
+const saveProject = async (req, res) => {
+  const project = await Project.findById(req.params.id).exec();
+
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const profile = await Profile.findById(req.user.profile._id).exec();
+
+  if (!profile) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+
+  if (project.owner?.equals(profile._id)) {
+    res.status(400).json({ error: 'You cannot save your own project' });
+    return;
+  }
+
+  const alreadySaved = (profile.saves || []).some((entry) =>
+    entry.equals(project._id),
+  );
+
+  if (!alreadySaved) {
+    profile.saves.push(project._id);
+    await profile.save();
+  }
+
+  res.json({
+    saved: true,
+    savesCount: profile.saves.length,
+  });
+};
+
+const unsaveProject = async (req, res) => {
+  const project = await Project.findById(req.params.id).select('_id').exec();
+
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const profile = await Profile.findById(req.user.profile._id).exec();
+
+  if (!profile) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+
+  profile.saves = (profile.saves || []).filter(
+    (entry) => !entry.equals(project._id),
+  );
+  await profile.save();
+
+  res.json({
+    saved: false,
+    savesCount: profile.saves.length,
+  });
+};
+
+const getSavedProjects = async (req, res) => {
+  const profile = await Profile.findById(req.user.profile._id)
+    .select('saves')
+    .exec();
+
+  if (!profile) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+
+  const saveIds = (profile.saves || []).map((entry) => entry.toString());
+
+  if (!saveIds.length) {
+    res.json({ projects: [] });
+    return;
+  }
+
+  const savedProjects = await Project.find({
+    _id: { $in: saveIds },
+    visible: true,
+  }).exec();
+
+  const byId = savedProjects.reduce((map, project) => {
+    map.set(project._id.toString(), project);
+    return map;
+  }, new Map());
+
+  const orderedProjects = saveIds
+    .map((id) => byId.get(id))
+    .filter(Boolean)
+    .map((project) => serializeProject(project));
+
+  res.json({ projects: orderedProjects });
 };
 
 const getProfiles = async (req, res) => {
@@ -1147,6 +1276,10 @@ const healthcheck = (req, res) => {
 
 export {
   addProjectComment,
+  getProjectSaveStatus,
+  getSavedProjects,
+  saveProject,
+  unsaveProject,
   addChatMessage,
   createChat,
   editChatMessage,

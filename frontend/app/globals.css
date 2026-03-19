@@ -647,10 +647,34 @@ h3 {
   position: absolute;
   inset: auto 16px 16px 16px;
   justify-content: space-between;
+  align-items: center;
   padding: 10px 12px;
   border-radius: 999px;
   color: white;
   background: rgba(0, 0, 0, 0.78);
+}
+
+.project-card__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-card__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.project-card__star {
+  width: 14px;
+  height: 14px;
+}
+
+.project-card__rating-value {
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .project-card__content {
@@ -659,8 +683,45 @@ h3 {
   padding: 18px;
 }
 
+.project-card__description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
 .project-card__eyebrow {
   justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.metric-rating {
+  display: grid;
+  gap: 6px;
+}
+
+.metric-rating__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.metric-rating__star {
+  width: 16px;
+  height: 16px;
+  color: #111;
+}
+
+.metric-rating__value {
+  display: block;
+  font-family: var(--font-display), serif;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.metric-rating__count {
   color: var(--muted);
   font-size: 0.9rem;
 }

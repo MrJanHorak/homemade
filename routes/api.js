@@ -20,9 +20,21 @@ router.put('/projects/draft', isApiLoggedIn, apiCtrl.saveProjectDraft);
 router.delete('/projects/draft', isApiLoggedIn, apiCtrl.deleteProjectDraft);
 router.get('/projects/:id', apiCtrl.getProject);
 router.put('/projects/:id', isApiLoggedIn, upload, apiCtrl.updateProject);
+router.get(
+  '/projects/:id/save-status',
+  isApiLoggedIn,
+  apiCtrl.getProjectSaveStatus,
+);
+router.post('/projects/:id/save', isApiLoggedIn, apiCtrl.saveProject);
+router.delete('/projects/:id/save', isApiLoggedIn, apiCtrl.unsaveProject);
 router.post('/projects/:id/comments', isApiLoggedIn, apiCtrl.addProjectComment);
 
 router.get('/profiles', apiCtrl.getProfiles);
+router.get(
+  '/profiles/me/saved-projects',
+  isApiLoggedIn,
+  apiCtrl.getSavedProjects,
+);
 router.get('/profiles/:id', apiCtrl.getProfile);
 router.put(
   '/profiles/:id',

@@ -1,17 +1,52 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
-const CommentForm = ({ projectId }) => {
+const CommentForm = ({ projectId, ownerId }) => {
   const router = useRouter();
   const [content, setContent] = useState('');
   const [rating, setRating] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/session/current`, {
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (isMounted) {
+          setIsOwner(
+            Boolean(data.user?.profile?.id && data.user.profile.id === ownerId),
+          );
+        }
+      } catch {
+        if (isMounted) {
+          setIsOwner(false);
+        }
+      }
+    };
+
+    loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [ownerId]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -58,6 +93,7 @@ const CommentForm = ({ projectId }) => {
         <select
           value={rating}
           onChange={(event) => setRating(event.target.value)}
+          disabled={isOwner}
         >
           <option value=''>Choose a rating</option>
           <option value='1'>1</option>
@@ -67,6 +103,12 @@ const CommentForm = ({ projectId }) => {
           <option value='5'>5</option>
         </select>
       </label>
+
+      {isOwner ? (
+        <p className='helper-copy'>
+          You can comment on your project, but you cannot rate it.
+        </p>
+      ) : null}
 
       <label>
         Comment
