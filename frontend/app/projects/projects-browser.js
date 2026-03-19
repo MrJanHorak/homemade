@@ -30,6 +30,54 @@ const DEFAULT_PAGINATION = {
   hasPrevPage: false,
 };
 
+const matchesCategory = (project, categoryFilter) => {
+  if (!categoryFilter || categoryFilter === 'all') {
+    return true;
+  }
+
+  const standardCategories = Array.isArray(project?.categories)
+    ? project.categories
+    : [];
+  const customCategories = Array.isArray(project?.otherCategory)
+    ? project.otherCategory
+    : [];
+
+  if (standardCategories.includes(categoryFilter)) {
+    return true;
+  }
+
+  return customCategories.some(
+    (entry) =>
+      `${entry || ''}`.trim().toLowerCase() === categoryFilter.toLowerCase(),
+  );
+};
+
+const matchesQuery = (project, queryFilter) => {
+  if (!queryFilter) {
+    return true;
+  }
+
+  const query = queryFilter.toLowerCase();
+  const content = [
+    project?.title,
+    project?.description,
+    project?.ownerName,
+    ...(Array.isArray(project?.categories) ? project.categories : []),
+    ...(Array.isArray(project?.otherCategory) ? project.otherCategory : []),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return content.includes(query);
+};
+
+const applyClientSideFilters = (projects, categoryFilter, queryFilter) =>
+  projects.filter(
+    (project) =>
+      matchesCategory(project, categoryFilter) &&
+      matchesQuery(project, queryFilter),
+  );
+
 const buildProjectsQuery = ({ sortBy, category, query, page, limit }) => {
   const params = new URLSearchParams();
   params.set('sort', sortBy);
@@ -163,9 +211,14 @@ const ProjectsBrowser = ({
       }
 
       const payload = await response.json();
-      const nextProjects = Array.isArray(payload.projects)
+      const rawProjects = Array.isArray(payload.projects)
         ? payload.projects
         : [];
+      const nextProjects = applyClientSideFilters(
+        rawProjects,
+        nextCategory,
+        nextQuery,
+      );
       const nextPagination =
         payload.pagination && typeof payload.pagination === 'object'
           ? payload.pagination
