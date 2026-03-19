@@ -1,12 +1,42 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api';
 
 const HeaderSearch = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
+
+  const buildProjectsUrl = (query) => {
+    const params = new URLSearchParams();
+
+    if (pathname === '/projects') {
+      const sort = searchParams.get('sort');
+      const category = searchParams.get('category');
+      const saved = searchParams.get('saved');
+
+      if (sort) {
+        params.set('sort', sort);
+      }
+
+      if (category) {
+        params.set('category', category);
+      }
+
+      if (saved === '1' || saved === 'true') {
+        params.set('saved', '1');
+      }
+    }
+
+    params.set('query', query);
+
+    return `/projects?${params.toString()}`;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -37,14 +67,16 @@ const HeaderSearch = () => {
   }, []);
 
   const handleSubmit = (event) => {
+    event.preventDefault();
+
     const query = inputRef.current?.value?.trim();
 
     if (!query) {
-      event.preventDefault();
       inputRef.current?.focus();
       return;
     }
 
+    router.push(buildProjectsUrl(query));
     setIsOpen(false);
   };
 
@@ -59,7 +91,6 @@ const HeaderSearch = () => {
   return (
     <form
       ref={containerRef}
-      action='/search'
       className={`inline-search ${isOpen ? 'inline-search--open' : ''}`}
       onSubmit={handleSubmit}
     >

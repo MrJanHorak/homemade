@@ -284,6 +284,160 @@ const parseJsonObject = (value) => {
 const getBackendBaseUrl = (req) =>
   process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
 
+const PROJECT_SORT_OPTIONS = new Set([
+  'latest',
+  'newest',
+  'oldest',
+  'rating',
+  'difficulty',
+]);
+const MAX_PROJECTS_PAGE_SIZE = 50;
+
+const escapeRegExp = (value) =>
+  `${value || ''}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeProjectSort = (value) => {
+  const input = `${value || ''}`.trim().toLowerCase();
+
+  if (!PROJECT_SORT_OPTIONS.has(input)) {
+    return 'newest';
+  }
+
+  return input === 'latest' ? 'newest' : input;
+};
+
+const normalizeProjectCategoryFilter = (value) => {
+  const input = `${value || ''}`.trim();
+
+  if (!input || input.toLowerCase() === 'all') {
+    return null;
+  }
+
+  return input.slice(0, 80);
+};
+
+const normalizeProjectQueryFilter = (value) => {
+  const input = `${value || ''}`.trim();
+
+  if (!input) {
+    return null;
+  }
+
+  return input.slice(0, 120);
+};
+
+const normalizePagination = (limitValue, pageValue) => {
+  const rawLimit = Number.parseInt(limitValue, 10);
+
+  if (!Number.isInteger(rawLimit) || rawLimit <= 0) {
+    return {
+      enabled: false,
+      limit: null,
+      page: 1,
+      skip: 0,
+    };
+  }
+
+  const limit = Math.max(1, Math.min(MAX_PROJECTS_PAGE_SIZE, rawLimit));
+  const rawPage = Number.parseInt(pageValue, 10);
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+
+  return {
+    enabled: true,
+    limit,
+    page,
+    skip: (page - 1) * limit,
+  };
+};
+
+const buildProjectSortSpec = (sort) => {
+  if (sort === 'oldest') {
+    return { createdAt: 1 };
+  }
+
+  if (sort === 'difficulty') {
+    return { difficulty: -1, createdAt: -1 };
+  }
+
+  return { createdAt: -1 };
+};
+
+const applyProjectFilterToQuery = (query, categoryFilter) => {
+  if (!categoryFilter) {
+    return query;
+  }
+
+  return {
+    ...query,
+    $or: [
+      { categories: categoryFilter },
+      {
+        otherCategory: {
+          $regex: `^${escapeRegExp(categoryFilter)}$`,
+          $options: 'i',
+        },
+      },
+    ],
+  };
+};
+
+const applyProjectQueryToFilter = (query, queryFilter) => {
+  if (!queryFilter) {
+    return query;
+  }
+
+  const textRegex = {
+    $regex: escapeRegExp(queryFilter),
+    $options: 'i',
+  };
+
+  const searchCondition = {
+    $or: [
+      { title: textRegex },
+      { description: textRegex },
+      { ownerName: textRegex },
+      { otherCategory: textRegex },
+    ],
+  };
+
+  if (query.$or) {
+    const existingOr = query.$or;
+    const { $or: _discard, ...base } = query;
+
+    return {
+      ...base,
+      $and: [{ $or: existingOr }, searchCondition],
+    };
+  }
+
+  return {
+    ...query,
+    ...searchCondition,
+  };
+};
+
+const applyProjectSort = (projects, sort) => {
+  if (sort === 'rating') {
+    return [...projects].sort((left, right) => {
+      const scoreDelta = (right.averageRating || 0) - (left.averageRating || 0);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      const countDelta = (right.ratingCount || 0) - (left.ratingCount || 0);
+      if (countDelta !== 0) {
+        return countDelta;
+      }
+
+      return (
+        new Date(right.createdAt).valueOf() - new Date(left.createdAt).valueOf()
+      );
+    });
+  }
+
+  return projects;
+};
+
 const getEnabledAuthProviders = (req) => {
   const backendBaseUrl = getBackendBaseUrl(req);
   const providers = {
@@ -351,18 +505,61 @@ const getSession = (req, res) => {
 };
 
 const getProjects = async (req, res) => {
-  const limit = Number.parseInt(req.query.limit, 10);
-  const sort = req.query.sort === 'latest' ? { createdAt: -1 } : { title: 1 };
+  const pagination = normalizePagination(req.query.limit, req.query.page);
+  const sort = normalizeProjectSort(req.query.sort);
+  const categoryFilter = normalizeProjectCategoryFilter(req.query.category);
+  const queryFilter = normalizeProjectQueryFilter(
+    req.query.query || req.query.q,
+  );
 
-  const query = Project.find({ visible: true }).sort(sort);
-  if (Number.isInteger(limit) && limit > 0) {
-    query.limit(limit);
+  const projectQuery = applyProjectQueryToFilter(
+    applyProjectFilterToQuery({ visible: true }, categoryFilter),
+    queryFilter,
+  );
+
+  const query = Project.find(projectQuery).sort(buildProjectSortSpec(sort));
+  const useDatabaseLimit = pagination.enabled && sort !== 'rating';
+
+  if (useDatabaseLimit) {
+    query.skip(pagination.skip).limit(pagination.limit);
   }
 
   const projects = await query.exec();
+  const serialized = projects.map((project) => serializeProject(project));
+  const sorted = applyProjectSort(serialized, sort);
+  const result =
+    pagination.enabled && sort === 'rating'
+      ? sorted.slice(pagination.skip, pagination.skip + pagination.limit)
+      : sorted;
+
+  if (!pagination.enabled) {
+    res.json({
+      projects: result,
+    });
+    return;
+  }
+
+  const total =
+    sort === 'rating' && !useDatabaseLimit
+      ? sorted.length
+      : await Project.countDocuments(projectQuery).exec();
+  const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
 
   res.json({
-    projects: projects.map((project) => serializeProject(project)),
+    projects: result,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      total,
+      totalPages,
+      hasNextPage: pagination.page < totalPages,
+      hasPrevPage: pagination.page > 1,
+    },
+    filters: {
+      sort,
+      category: categoryFilter,
+      query: queryFilter,
+    },
   });
 };
 
@@ -903,6 +1100,13 @@ const unsaveProject = async (req, res) => {
 };
 
 const getSavedProjects = async (req, res) => {
+  const pagination = normalizePagination(req.query.limit, req.query.page);
+  const sort = normalizeProjectSort(req.query.sort);
+  const categoryFilter = normalizeProjectCategoryFilter(req.query.category);
+  const queryFilter = normalizeProjectQueryFilter(
+    req.query.query || req.query.q,
+  );
+
   const profile = await Profile.findById(req.user.profile._id)
     .select('saves')
     .exec();
@@ -915,26 +1119,90 @@ const getSavedProjects = async (req, res) => {
   const saveIds = (profile.saves || []).map((entry) => entry.toString());
 
   if (!saveIds.length) {
-    res.json({ projects: [] });
+    res.json({
+      projects: [],
+      ...(pagination.enabled
+        ? {
+            pagination: {
+              page: pagination.page,
+              limit: pagination.limit,
+              total: 0,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPrevPage: pagination.page > 1,
+            },
+            filters: {
+              sort,
+              category: categoryFilter,
+              query: queryFilter,
+            },
+          }
+        : {}),
+    });
     return;
   }
 
-  const savedProjects = await Project.find({
-    _id: { $in: saveIds },
-    visible: true,
-  }).exec();
+  const savedProjectQuery = applyProjectQueryToFilter(
+    applyProjectFilterToQuery(
+      {
+        _id: { $in: saveIds },
+        visible: true,
+      },
+      categoryFilter,
+    ),
+    queryFilter,
+  );
 
-  const byId = savedProjects.reduce((map, project) => {
-    map.set(project._id.toString(), project);
-    return map;
-  }, new Map());
+  const savedProjectsQuery = Project.find(savedProjectQuery).sort(
+    buildProjectSortSpec(sort),
+  );
 
-  const orderedProjects = saveIds
-    .map((id) => byId.get(id))
-    .filter(Boolean)
-    .map((project) => serializeProject(project));
+  const useDatabaseLimit = pagination.enabled && sort !== 'rating';
+  if (useDatabaseLimit) {
+    savedProjectsQuery.skip(pagination.skip).limit(pagination.limit);
+  }
 
-  res.json({ projects: orderedProjects });
+  const savedProjects = await savedProjectsQuery.exec();
+
+  const serializedProjects = savedProjects.map((project) =>
+    serializeProject(project),
+  );
+  const orderedProjects = applyProjectSort(serializedProjects, sort);
+
+  if (!pagination.enabled) {
+    res.json({ projects: orderedProjects });
+    return;
+  }
+
+  const pagedProjects =
+    sort === 'rating'
+      ? orderedProjects.slice(
+          pagination.skip,
+          pagination.skip + pagination.limit,
+        )
+      : orderedProjects;
+  const total =
+    sort === 'rating' && !useDatabaseLimit
+      ? orderedProjects.length
+      : await Project.countDocuments(savedProjectQuery).exec();
+  const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
+
+  res.json({
+    projects: pagedProjects,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      total,
+      totalPages,
+      hasNextPage: pagination.page < totalPages,
+      hasPrevPage: pagination.page > 1,
+    },
+    filters: {
+      sort,
+      category: categoryFilter,
+      query: queryFilter,
+    },
+  });
 };
 
 const getProfiles = async (req, res) => {
