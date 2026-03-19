@@ -226,6 +226,9 @@ const parseBoolean = (value, defaultValue = true) => {
   return Boolean(value);
 };
 
+const getStructuredRatings = (project) =>
+  Array.isArray(project.ratings) ? project.ratings : [];
+
 const cleanDraftSteps = (value) => {
   if (!Array.isArray(value)) {
     return [];
@@ -786,7 +789,16 @@ const addProjectComment = async (req, res) => {
   }
 
   if (Number.isInteger(rating) && rating >= 1 && rating <= 5) {
-    project.rating.push(rating);
+    const existingRatings = getStructuredRatings(project);
+    const existingEntry = existingRatings.find((entry) =>
+      entry.owner?.equals(currentProfile._id),
+    );
+
+    if (existingEntry) {
+      existingEntry.value = rating;
+    } else {
+      existingRatings.push({ owner: currentProfile._id, value: rating });
+    }
   }
 
   if (content) {

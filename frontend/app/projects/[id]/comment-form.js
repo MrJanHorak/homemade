@@ -108,7 +108,11 @@ const CommentForm = ({ projectId, ownerId }) => {
         <p className='helper-copy'>
           You can comment on your project, but you cannot rate it.
         </p>
-      ) : null}
+      ) : (
+        <p className='helper-copy'>
+          Updating your rating will replace your previous score.
+        </p>
+      )}
 
       <label>
         Comment

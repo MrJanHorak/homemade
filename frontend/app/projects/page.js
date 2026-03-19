@@ -1,4 +1,4 @@
-import ProjectCard from '@/components/project-card';
+import ProjectsBrowser from './projects-browser';
 import { getJson } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -22,11 +22,7 @@ const ProjectsPage = async () => {
           </p>
         </div>
 
-        <div className='project-grid'>
-          {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
+        <ProjectsBrowser initialProjects={projects} />
       </section>
     </div>
   );

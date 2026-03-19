@@ -88,7 +88,7 @@ const StarRating = ({ rating, ratingCount, projectId }) => {
   );
 };
 
-const ProjectCard = ({ project, diyTone = 'minimal' }) => {
+const ProjectCard = ({ project, diyTone = 'minimal', isSaved = false }) => {
   const heroImage =
     project.buildPictures[0] || 'https://placehold.co/800x600?text=Homemade';
   const previewDescription = getDescriptionPreview(project.description);
@@ -116,6 +116,9 @@ const ProjectCard = ({ project, diyTone = 'minimal' }) => {
       <div className='project-card__content'>
         <div className='project-card__eyebrow'>
           <span>{project.ownerName || 'Community project'}</span>
+          {isSaved ? (
+            <span className='project-card__saved-chip'>Saved</span>
+          ) : null}
         </div>
 
         <h3>{project.title}</h3>

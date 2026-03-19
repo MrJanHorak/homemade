@@ -11,7 +11,17 @@ const projectComment = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
+);
+
+const projectRating = new Schema(
+  {
+    owner: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
+    value: { type: Number, min: 1, max: 5, required: true },
+  },
+  {
+    _id: false,
+  },
 );
 
 const projectSchema = new Schema(
@@ -99,11 +109,12 @@ const projectSchema = new Schema(
     dateBuilt: Date,
     likes: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
     rating: [Number],
+    ratings: [projectRating],
     visible: { type: Boolean, default: true },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Project = mongoose.model('Project', projectSchema);

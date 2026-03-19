@@ -122,7 +122,7 @@ const SavedProjectsPage = () => {
         <div className='project-grid'>
           {projects.length ? (
             projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectCard key={project.id} project={project} isSaved />
             ))
           ) : (
             <p className='empty-copy'>You have no saved projects yet.</p>
