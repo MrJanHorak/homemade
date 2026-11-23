@@ -14,7 +14,7 @@
     "dev:server": "nodemon ./bin/www.js",
     "dev:client": "npm run dev --workspace frontend",
     "build:client": "npm run build --workspace frontend",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "repository": {
     "type": "git",

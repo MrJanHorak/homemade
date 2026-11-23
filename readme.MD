@@ -1,10 +1,6 @@
 # Homemade
 
-Homemade is a maker-focused social app built on MongoDB and Express. The project now has a staged front-end migration in place:
-
-- Express remains the backend for MongoDB access, Google auth, sessions, uploads, and Socket.IO chat.
-- Next.js now provides the modern UI layer for the migrated browse flows.
-- EJS still exists for legacy routes that have not been moved yet.
+Homemade is a maker-focused social app. Next.js serves the user interface, and Express handles MongoDB access, authentication, sessions, uploads, and the JSON API.
 
 ## Current architecture
 
@@ -12,23 +8,9 @@ Homemade is a maker-focused social app built on MongoDB and Express. The project
 - `routes/api.js`, `controllers/api.js`, `lib/serializers.js`: JSON API for the new frontend
 - `frontend/`: Next.js App Router frontend
 
-## Migrated routes
+## Browser routes
 
-The following routes are now implemented in Next.js and consume the Express API:
-
-- `/`
-- `/projects`
-- `/projects/:id`
-- `/profiles`
-- `/profiles/:id`
-- `/search?query=...`
-
-The following features still use Express/EJS for now:
-
-- Google auth entry and callback
-- create/edit project forms
-- edit profile
-- chats UI
+Open the Next.js frontend for browsing, project editing, profiles, chats, and moderation. Old Express page links redirect to the frontend. Chat uses the participant-checked JSON API. OAuth entry and callback routes remain on Express.
 
 ## API routes
 
@@ -38,6 +20,7 @@ The Express backend now exposes these endpoints for the frontend:
 - `GET /api/session/current`
 - `GET /api/projects`
 - `GET /api/projects/:id`
+- `DELETE /api/projects/:id` for the owner
 - `POST /api/projects/:id/comments`
 - `GET /api/profiles`
 - `GET /api/profiles/:id`
@@ -131,24 +114,18 @@ After changing role:
 
 Copy `.env.example` to `.env` and fill in the values.
 
-Required backend values:
+Set `DATABASE_URL` for a disposable local MongoDB database and set `SESSION_SECRET`. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_SECRET`, and `GOOGLE_CALLBACK` to test Google sign-in. Apple sign-in is disabled while its callback validation is being replaced. Existing password accounts can still sign in. Email sign-up, verification resend, and magic-link requests require a mail delivery implementation for production. To test those flows locally with a disposable database and a loopback-only service, set `AUTH_DEBUG_LINKS=true` to return development links directly.
 
-- `DATABASE_URL`
-- `SESSION_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_SECRET`
-- `GOOGLE_CALLBACK`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-- `S3_BUCKET`
+For uploads, set `S3_BUCKET` and `AWS_REGION` and use the AWS SDK credential chain. Use a test bucket. The app currently stores direct S3 image URLs, so hiding a project in HomeMade does not revoke those URLs.
 
-Recommended for the hybrid setup:
+Use these origins for local development.
 
 - `FRONTEND_URL=http://localhost:3001`
 - `CLIENT_ORIGIN=http://localhost:3001`
 - `API_BASE_URL=http://localhost:3000`
 - `NEXT_PUBLIC_API_BASE_URL=http://localhost:3000`
+
+Next.js reads `NEXT_PUBLIC_API_BASE_URL` from its frontend process environment. If you change it from the local default, set it in `frontend/.env.local` or export it before starting or building Next.js. Set `FRONTEND_URL` explicitly in production. A same-host reverse proxy can route `/api`, the Express auth endpoints, and public assets to Express while serving UI routes from Next.js. Next.js must receive the session cookie for owner-only pages it renders on the server. Use HTTPS in production and configure `TRUST_PROXY_HOPS` to match a known proxy chain.
 
 ## Local development
 
@@ -176,21 +153,14 @@ Run only the frontend:
 npm run dev:client
 ```
 
-Build the frontend:
+Build the frontend and run offline regression tests.
 
 ```bash
 npm run build:client
+npm test
 ```
 
-## Migration notes
-
-This is an incremental migration, not a rewrite. The intended sequence is:
-
-1. Keep Express as the source of truth for data, auth, uploads, and sockets.
-2. Move each EJS page to Next.js.
-3. Replace form posts and legacy redirects with JSON mutations.
-4. Move chat UI to Next.js while keeping Socket.IO on Express.
-5. Remove EJS once the migrated surface is complete.
+See [PLAN.md](PLAN.md) for the remaining deployment, dependency, and UX work.
 
 ## Asset credits
 

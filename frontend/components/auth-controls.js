@@ -18,6 +18,8 @@ const AuthControls = () => {
     },
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [logoutError, setLogoutError] = useState('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const queryString = searchParams?.toString();
   const returnTo = `${pathname || '/'}${queryString ? `?${queryString}` : ''}`;
   const loginHref = `/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
@@ -52,6 +54,22 @@ const AuthControls = () => {
       isMounted = false;
     };
   }, []);
+
+  const signOut = async () => {
+    setIsSigningOut(true);
+    setLogoutError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Unable to sign out. Try again.');
+      window.location.assign('/');
+    } catch {
+      setLogoutError('Unable to sign out. Try again.');
+      setIsSigningOut(false);
+    }
+  };
 
   if (isLoading) {
     return <div className='auth-inline auth-inline--muted'>Loading...</div>;
@@ -109,9 +127,10 @@ const AuthControls = () => {
         >
           Profile settings
         </Link>
-        <a href={session.links.logout} className='account-menu__link'>
-          Sign out
-        </a>
+        <button type='button' className='account-menu__link' onClick={signOut} disabled={isSigningOut}>
+          {isSigningOut ? 'Signing out…' : 'Sign out'}
+        </button>
+        {logoutError ? <p role='alert'>{logoutError}</p> : null}
       </div>
     </details>
   );

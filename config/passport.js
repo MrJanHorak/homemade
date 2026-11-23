@@ -2,7 +2,6 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { Strategy as MicrosoftStrategy } from 'passport-microsoft';
-import { Strategy as AppleStrategy } from 'passport-apple';
 import { User } from '../models/user.js';
 import { Profile } from '../models/profile.js';
 
@@ -16,61 +15,22 @@ const buildAvatarFromName = (name) => {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
 };
 
-const decodeJwtPayload = (jwt) => {
-  if (typeof jwt !== 'string') {
-    return {};
-  }
-
-  const parts = jwt.split('.');
-  if (parts.length < 2) {
-    return {};
-  }
-
-  try {
-    const payload = Buffer.from(parts[1], 'base64url').toString('utf8');
-    return JSON.parse(payload);
-  } catch {
-    return {};
-  }
-};
-
 const findOrCreateOAuthUser = async ({
   providerField,
   providerId,
   email,
+  emailVerified = false,
   displayName,
   avatar,
 }) => {
   const normalizedEmail =
     typeof email === 'string' ? email.toLowerCase() : undefined;
 
-  if (providerId) {
-    const providerMatch = await User.findOne({
-      [providerField]: providerId,
-    }).exec();
+  if (typeof providerId !== 'string' || !providerId) return false;
+  const providerMatch = await User.findOne({ [providerField]: providerId }).exec();
+  if (providerMatch) return providerMatch;
 
-    if (providerMatch) {
-      if (!providerMatch.emailVerified) {
-        providerMatch.emailVerified = true;
-        await providerMatch.save();
-      }
-
-      return providerMatch;
-    }
-  }
-
-  if (normalizedEmail) {
-    const emailMatch = await User.findOne({ email: normalizedEmail }).exec();
-
-    if (emailMatch) {
-      if (providerId) {
-        emailMatch[providerField] = providerId;
-      }
-      emailMatch.emailVerified = true;
-      await emailMatch.save();
-      return emailMatch;
-    }
-  }
+  if (normalizedEmail && await User.exists({ email: normalizedEmail })) return false;
 
   const name =
     displayName || getDefaultNameFromEmail(normalizedEmail || 'maker@local');
@@ -80,9 +40,9 @@ const findOrCreateOAuthUser = async ({
   });
 
   const newUser = new User({
-    email: normalizedEmail,
+    email: emailVerified ? normalizedEmail : undefined,
     [providerField]: providerId,
-    emailVerified: true,
+    emailVerified: Boolean(emailVerified && normalizedEmail),
     profile: newProfile._id,
   });
 
@@ -103,13 +63,15 @@ if (
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_SECRET,
         callbackURL: process.env.GOOGLE_CALLBACK,
+        state: true,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           const user = await findOrCreateOAuthUser({
             providerField: 'googleId',
-            providerId: profile.id,
+            providerId: String(profile.id ?? ''),
             email: profile.emails?.[0]?.value,
+            emailVerified: profile.emails?.[0]?.verified === true,
             displayName: profile.displayName,
             avatar: profile.photos?.[0]?.value,
           });
@@ -134,13 +96,14 @@ if (
         clientID: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
         callbackURL: process.env.GITHUB_CALLBACK,
+        state: true,
         scope: ['user:email'],
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           const user = await findOrCreateOAuthUser({
             providerField: 'githubId',
-            providerId: profile.id,
+            providerId: String(profile.id ?? ''),
             email: profile.emails?.[0]?.value,
             displayName: profile.displayName || profile.username,
             avatar: profile.photos?.[0]?.value,
@@ -166,58 +129,19 @@ if (
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
         callbackURL: process.env.MICROSOFT_CALLBACK,
+        state: true,
         scope: ['user.read'],
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           const user = await findOrCreateOAuthUser({
             providerField: 'microsoftId',
-            providerId: profile.id,
+            providerId: String(profile.id ?? ''),
             email:
               profile.emails?.[0]?.value ||
               profile._json?.mail ||
               profile._json?.userPrincipalName,
             displayName: profile.displayName,
-            avatar: undefined,
-          });
-
-          return done(null, user);
-        } catch (err) {
-          return done(err);
-        }
-      },
-    ),
-  );
-}
-
-if (
-  process.env.APPLE_CLIENT_ID &&
-  process.env.APPLE_TEAM_ID &&
-  process.env.APPLE_KEY_ID &&
-  process.env.APPLE_PRIVATE_KEY &&
-  process.env.APPLE_CALLBACK
-) {
-  passport.use(
-    new AppleStrategy(
-      {
-        clientID: process.env.APPLE_CLIENT_ID,
-        teamID: process.env.APPLE_TEAM_ID,
-        keyID: process.env.APPLE_KEY_ID,
-        privateKeyString: process.env.APPLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        callbackURL: process.env.APPLE_CALLBACK,
-      },
-      async (accessToken, refreshToken, idToken, profile, done) => {
-        try {
-          const tokenPayload = decodeJwtPayload(idToken);
-          const appleEmail =
-            profile?.email || tokenPayload.email || profile?._json?.email;
-          const appleSub = profile?.id || tokenPayload.sub;
-          const user = await findOrCreateOAuthUser({
-            providerField: 'appleId',
-            providerId: appleSub,
-            email: appleEmail,
-            displayName:
-              profile?.displayName || getDefaultNameFromEmail(appleEmail),
             avatar: undefined,
           });
 

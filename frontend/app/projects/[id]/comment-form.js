@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -12,6 +13,7 @@ const CommentForm = ({ projectId, ownerId }) => {
   const [rating, setRating] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
@@ -24,18 +26,21 @@ const CommentForm = ({ projectId, ownerId }) => {
         });
 
         if (!response.ok) {
+          if (isMounted) setIsAuthenticated(false);
           return;
         }
 
         const data = await response.json();
 
         if (isMounted) {
+          setIsAuthenticated(Boolean(data.authenticated));
           setIsOwner(
             Boolean(data.user?.profile?.id && data.user.profile.id === ownerId),
           );
         }
       } catch {
         if (isMounted) {
+          setIsAuthenticated(false);
           setIsOwner(false);
         }
       }
@@ -81,11 +86,21 @@ const CommentForm = ({ projectId, ownerId }) => {
     }
   };
 
+  if (isAuthenticated === null) return null;
+
+  if (!isAuthenticated) {
+    const returnTo = encodeURIComponent(`/projects/${projectId}`);
+    return (
+      <Link href={`/auth/sign-in?returnTo=${returnTo}`} className='button button--ghost'>
+        Sign in to rate or comment
+      </Link>
+    );
+  }
+
   return (
     <form className='comment-form' onSubmit={handleSubmit}>
       <div className='comment-form__header'>
         <h3>Rate or comment</h3>
-        <p>Posting uses your existing Express session.</p>
       </div>
 
       <label>
@@ -124,7 +139,7 @@ const CommentForm = ({ projectId, ownerId }) => {
         />
       </label>
 
-      {error ? <p className='form-error'>{error}</p> : null}
+      {error ? <p className='form-error' role='alert'>{error}</p> : null}
 
       <button type='submit' className='button' disabled={isSubmitting}>
         {isSubmitting ? 'Saving...' : 'Post feedback'}

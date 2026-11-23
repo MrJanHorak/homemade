@@ -4,10 +4,12 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api';
+import { safeReturnTo } from '../../../../lib/return-to.js';
 
 const VerifyEmailContent = () => {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const [status, setStatus] = useState('Verifying your email...');
   const [hasError, setHasError] = useState(false);
 
@@ -38,7 +40,7 @@ const VerifyEmailContent = () => {
 
         setStatus('Email verified. Redirecting...');
         window.setTimeout(() => {
-          window.location.assign('/');
+          window.location.replace(returnTo);
         }, 800);
       } catch (error) {
         setStatus(error.message);
@@ -47,7 +49,7 @@ const VerifyEmailContent = () => {
     };
 
     verify();
-  }, [token]);
+  }, [token, returnTo]);
 
   return (
     <main className='page-stack'>

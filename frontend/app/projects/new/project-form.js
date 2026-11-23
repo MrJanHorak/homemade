@@ -3,15 +3,17 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import fallbackCategories from '@/lib/categories';
 import { API_BASE_URL } from '@/lib/api';
+import { getStoredPictureName } from '@/lib/project-images';
+import { parseInstruction } from '@/lib/project-instructions';
 
 const RichTextEditor = dynamic(() => import('@/components/rich-text-editor'), {
   ssr: false,
 });
 
-const LOCAL_DRAFT_FALLBACK_KEY = 'homemade.project-form-draft.v1';
+const LEGACY_DRAFT_KEY = 'homemade.project-form-draft.v1';
 const CATEGORY_BLOCKLIST = ['porn', 'xxx', 'nsfw', 'racist', 'hate', 'nazi'];
 const CATEGORY_ALLOWED_CHARS = /^[a-z0-9][a-z0-9 &+/'-]{1,38}$/i;
 const STEP_TYPES = [
@@ -29,6 +31,23 @@ const createEmptyStep = () => ({
   imagePosition: 'after',
 });
 
+const buildStepsFromInstructions = (instructions, pictures) => {
+  const pictureNames = pictures.map((url) => getStoredPictureName(url).toLowerCase());
+  const steps = (instructions || []).filter((instruction) => instruction.trim()).map((instruction, index) => {
+    const parsed = parseInstruction(instruction);
+    return {
+      type: parsed.type,
+      title: parsed.label || `Step ${index + 1}`,
+      content: parsed.content,
+      imagePosition: parsed.imagePosition,
+      imageIndexes: pictureNames.flatMap((name, pictureIndex) =>
+        parsed.imageNames.includes(name) ? [pictureIndex] : [],
+      ),
+    };
+  });
+  return steps.length ? steps : [createEmptyStep()];
+};
+
 const fallbackStandardOptions = fallbackCategories.map((entry) => ({
   type: 'standard',
   value: entry.value,
@@ -42,91 +61,6 @@ const emptySession = {
     login: `${API_BASE_URL}/auth/google`,
     logout: `${API_BASE_URL}/auth/logout`,
   },
-};
-
-const parseInstructionToStep = (rawInstruction, index) => {
-  const instruction = `${rawInstruction || ''}`.trim();
-
-  if (!instruction) {
-    return null;
-  }
-
-  let type = 'instruction';
-  let text = instruction;
-  const typeMatch = text.match(/^\[(TIP|WARNING|CHECKPOINT)\]\s*/i);
-
-  if (typeMatch) {
-    type = typeMatch[1].toLowerCase();
-    text = text.slice(typeMatch[0].length);
-  }
-
-  const metadataMatch = text.match(/\s*\(([^)]*)\)\s*$/);
-  let imagePosition = 'after';
-
-  if (metadataMatch) {
-    const metadataRaw = metadataMatch[1];
-    const hasImageMetadata = /(^|;)\s*images\s*:/i.test(metadataRaw);
-
-    if (hasImageMetadata) {
-      const positionMatch = metadataRaw.match(
-        /(^|;)\s*position\s*:\s*(before|after)\s*($|;)/i,
-      );
-
-      if (positionMatch) {
-        imagePosition = positionMatch[2].toLowerCase();
-      }
-
-      text = text.slice(0, metadataMatch.index).trim();
-    }
-  }
-
-  if (!text) {
-    return null;
-  }
-
-  const separatorIndex = text.indexOf(':');
-  if (separatorIndex > 0) {
-    return {
-      ...createEmptyStep(),
-      type,
-      title: text.slice(0, separatorIndex).trim(),
-      content: text.slice(separatorIndex + 1).trim(),
-      imagePosition,
-    };
-  }
-
-  return {
-    ...createEmptyStep(),
-    type,
-    title: `Step ${index + 1}`,
-    content: text,
-    imagePosition,
-  };
-};
-
-const buildStepsFromInstructions = (instructions) => {
-  const parsed = (Array.isArray(instructions) ? instructions : [])
-    .map((instruction, index) => parseInstructionToStep(instruction, index))
-    .filter(Boolean);
-
-  return parsed.length ? parsed : [createEmptyStep()];
-};
-
-const getStoredPictureName = (url, fallbackLabel) => {
-  const withoutQuery = `${url || ''}`.split('?')[0] || '';
-  const key = withoutQuery.split('/').pop() || '';
-  const firstDashIndex = key.indexOf('-');
-  const rawName = firstDashIndex >= 0 ? key.slice(firstDashIndex + 1) : key;
-
-  if (!rawName) {
-    return fallbackLabel;
-  }
-
-  try {
-    return decodeURIComponent(rawName);
-  } catch {
-    return rawName;
-  }
 };
 
 const getPlainTextFromRichText = (value) =>
@@ -144,17 +78,22 @@ const normalizeRichText = (value) => {
   return trimmed || '<p></p>';
 };
 
-const ProjectForm = ({ mode = 'create', projectId = null }) => {
+const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = false }) => {
   const isEditMode = mode === 'edit';
   const router = useRouter();
   const [session, setSession] = useState(emptySession);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isOwner, setIsOwner] = useState(mode !== 'edit');
   const [existingPictures, setExistingPictures] = useState([]);
   const [error, setError] = useState('');
   const [draftState, setDraftState] = useState('');
   const [hasInitializedDraft, setHasInitializedDraft] = useState(false);
+  const draftQueue = useRef(Promise.resolve());
+  const suppressedDraftForm = useRef(null);
+  const draftProfileId = session.user?.profile?.id;
+  const localDraftKey = draftProfileId ? `homemade.project-form-draft.v2.${draftProfileId}` : null;
   const [dragStepIndex, setDragStepIndex] = useState(null);
   const [dragOverStepIndex, setDragOverStepIndex] = useState(null);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
@@ -273,6 +212,7 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        'X-Draft-Profile': draftProfileId,
       },
       body: JSON.stringify(draftPayload),
     });
@@ -285,6 +225,7 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
   const loadDraftFromApi = async () => {
     const response = await fetch(`${API_BASE_URL}/api/projects/draft`, {
       credentials: 'include',
+      headers: { 'X-Draft-Profile': draftProfileId },
     });
 
     if (response.status === 401) {
@@ -295,14 +236,14 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
       throw new Error(`Draft load failed: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.draft || null;
+    return response.json();
   };
 
   const clearDraftInApi = async () => {
     const response = await fetch(`${API_BASE_URL}/api/projects/draft`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: { 'X-Draft-Profile': draftProfileId },
     });
 
     if (!response.ok && response.status !== 404) {
@@ -331,11 +272,14 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
           const projectData = await projectResponse.json().catch(() => ({}));
           const project = projectData.project;
 
-          if (!project) {
-            throw new Error('Unable to load project');
+          if (!isMounted) {
+            return;
           }
 
-          if (!isMounted) {
+          setSession(sessionData);
+          if (!project) {
+            setIsOwner(false);
+            setError(projectResponse.status === 404 ? 'Project unavailable.' : 'Unable to load project.');
             return;
           }
 
@@ -345,11 +289,9 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
             sessionData.user.profile.id === project.owner,
           );
 
-          setSession(sessionData);
           setIsOwner(ownsProject);
-          setExistingPictures(
-            Array.isArray(project.buildPictures) ? project.buildPictures : [],
-          );
+          const pictures = Array.isArray(project.buildPictures) ? project.buildPictures : [];
+          setExistingPictures(pictures);
           setForm((current) => ({
             ...current,
             title: project.title || '',
@@ -376,7 +318,7 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
               ? project.externalLinks
               : [''],
             buildPictures: [],
-            buildSteps: buildStepsFromInstructions(project.buildInstructions),
+            buildSteps: buildStepsFromInstructions(project.buildInstructions, pictures),
             visible: project.visible !== false,
           }));
 
@@ -454,12 +396,12 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
 
   const loginHref = useMemo(
     () =>
-      `${session.links.login}?returnTo=${encodeURIComponent(
+      `/auth/sign-in?returnTo=${encodeURIComponent(
         isEditMode && projectId
           ? `/projects/${projectId}/edit`
           : '/projects/new',
       )}`,
-    [isEditMode, projectId, session.links.login],
+    [isEditMode, projectId],
   );
 
   useEffect(() => {
@@ -476,102 +418,93 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
   }, [form.buildPictures]);
 
   useEffect(() => {
-    if (
-      isEditMode ||
-      isLoading ||
-      !session.authenticated ||
-      hasInitializedDraft
-    ) {
-      return;
-    }
+    if (isEditMode || isLoading || !localDraftKey || hasInitializedDraft) return;
 
-    let isMounted = true;
-
+    let active = true;
     const loadDraft = async () => {
+      let cloudDraft = null;
+      let localDraft = null;
+      let loadFailed = false;
+
       try {
-        const serverDraft = await loadDraftFromApi();
-
-        if (serverDraft && isMounted) {
-          setForm((current) => ({
-            ...current,
-            ...serverDraft,
-            otherCategory: Array.isArray(serverDraft.otherCategory)
-              ? serverDraft.otherCategory
-              : [],
-            buildPictures: [],
-            buildSteps: normalizeSteps(serverDraft.buildSteps),
-          }));
-          setDraftState(
-            'Draft restored from cloud (images need re-selection).',
-          );
-          return;
-        }
-
-        const localDraft = window.localStorage.getItem(
-          LOCAL_DRAFT_FALLBACK_KEY,
-        );
-
-        if (localDraft && isMounted) {
-          const parsedDraft = JSON.parse(localDraft);
-          setForm((current) => ({
-            ...current,
-            ...parsedDraft,
-            otherCategory: Array.isArray(parsedDraft.otherCategory)
-              ? parsedDraft.otherCategory
-              : [],
-            buildPictures: [],
-            buildSteps: normalizeSteps(parsedDraft.buildSteps),
-          }));
-          setDraftState(
-            'Restored local fallback draft (images need re-selection).',
-          );
-        }
-      } catch (draftError) {
-        if (draftError.message !== 'AUTH_REQUIRED' && isMounted) {
-          setDraftState('Could not load cloud draft.');
-        }
-      } finally {
-        if (isMounted) {
-          setHasInitializedDraft(true);
-        }
+        window.localStorage.removeItem(LEGACY_DRAFT_KEY);
+        localDraft = JSON.parse(window.localStorage.getItem(localDraftKey));
+      } catch {
+        // Drafts are still available from the account if local storage fails.
       }
+
+      try {
+        cloudDraft = await loadDraftFromApi();
+      } catch {
+        loadFailed = true;
+      }
+
+      if (!active) return;
+      const useLocal = localDraft?.draft && (
+        !cloudDraft?.draft || localDraft.savedAt > Date.parse(cloudDraft.updatedAt)
+      );
+      const draft = useLocal ? localDraft.draft : cloudDraft?.draft;
+
+      if (draft) {
+        setForm((current) => ({
+          ...current,
+          ...draft,
+          otherCategory: Array.isArray(draft.otherCategory) ? draft.otherCategory : [],
+          buildPictures: [],
+          buildSteps: normalizeSteps(draft.buildSteps),
+        }));
+        setDraftState(useLocal
+          ? 'Restored this account’s local draft. Re-select any images.'
+          : 'Cloud draft restored. Re-select any images.');
+      } else if (loadFailed) {
+        setDraftState('Could not load the cloud draft.');
+      }
+
+      setHasInitializedDraft(true);
     };
 
     loadDraft();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isEditMode, isLoading, session.authenticated, hasInitializedDraft]);
+    return () => { active = false; };
+  }, [isEditMode, isLoading, localDraftKey, hasInitializedDraft]);
 
   useEffect(() => {
-    if (isEditMode || !hasInitializedDraft || !session.authenticated) {
-      return;
-    }
+    if (isEditMode || !hasInitializedDraft || !localDraftKey) return;
 
+    let active = true;
     const timeout = setTimeout(() => {
-      const draftPayload = buildDraftPayload(form);
+      draftQueue.current = draftQueue.current.catch(() => {}).then(async () => {
+        if (!active || suppressedDraftForm.current === form) return;
 
-      saveDraftToApi(draftPayload)
-        .then(() => {
-          window.localStorage.removeItem(LOCAL_DRAFT_FALLBACK_KEY);
-          setDraftState('Draft saved to cloud.');
-        })
-        .catch(() => {
+        const draft = buildDraftPayload(form);
+        const savedAt = Date.now();
+        try {
+          await saveDraftToApi(draft);
+        } catch {
+          if (!active || suppressedDraftForm.current === form) return;
           try {
-            window.localStorage.setItem(
-              LOCAL_DRAFT_FALLBACK_KEY,
-              JSON.stringify(draftPayload),
-            );
-            setDraftState('Cloud save failed. Draft saved locally.');
+            window.localStorage.setItem(localDraftKey, JSON.stringify({ draft, savedAt }));
+            setDraftState('Cloud save failed. Draft saved on this device.');
           } catch {
-            setDraftState('Could not save draft to cloud or local storage.');
+            setDraftState('Could not save draft to cloud or this device.');
           }
-        });
+          return;
+        }
+
+        if (!active || suppressedDraftForm.current === form) return;
+        try {
+          window.localStorage.removeItem(localDraftKey);
+        } catch {
+          // The cloud save already succeeded.
+        }
+        setDraftState('Draft saved to cloud.');
+      });
     }, 500);
 
-    return () => clearTimeout(timeout);
-  }, [form, isEditMode, hasInitializedDraft, session.authenticated]);
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [form, isEditMode, hasInitializedDraft, localDraftKey]);
 
   const updateField = (field, value) => {
     setForm((current) => ({
@@ -690,17 +623,21 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
 
   const handleFileChange = (event) => {
     const nextFiles = Array.from(event.target.files || []);
-    const nextImageCount = existingImageEntries.length + nextFiles.length;
+    event.target.value = '';
+    if (!nextFiles.length) return;
+    if (nextFiles.some((file) => file.size > 5 * 1024 * 1024)) {
+      setError('Each image must be 5 MB or smaller.');
+      return;
+    }
+    if (form.buildPictures.length + nextFiles.length > 12) {
+      setError('You can upload up to 12 new images at a time.');
+      return;
+    }
+    setError('');
 
     setForm((current) => ({
       ...current,
-      buildPictures: nextFiles,
-      buildSteps: current.buildSteps.map((step) => ({
-        ...step,
-        imageIndexes: step.imageIndexes.filter(
-          (imageIndex) => imageIndex < nextImageCount,
-        ),
-      })),
+      buildPictures: [...current.buildPictures, ...nextFiles],
     }));
   };
 
@@ -780,14 +717,34 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
   };
 
   const clearSavedDraft = async () => {
+    suppressedDraftForm.current = form;
     try {
-      await clearDraftInApi();
+      const clear = draftQueue.current.catch(() => {}).then(clearDraftInApi);
+      draftQueue.current = clear;
+      await clear;
+      if (localDraftKey) window.localStorage.removeItem(localDraftKey);
+      setDraftState('Saved draft cleared. Your open form is still here.');
     } catch {
-      // Keep local cleanup even if cloud delete fails.
+      setDraftState('Could not completely clear the saved draft. Try again.');
     }
+  };
 
-    window.localStorage.removeItem(LOCAL_DRAFT_FALLBACK_KEY);
-    setDraftState('Saved draft cleared.');
+  const handleDeleteProject = async () => {
+    if (!window.confirm('Permanently delete this project and its comments?')) return;
+    setIsDeleting(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Unable to delete this project.');
+      router.replace('/projects');
+      router.refresh();
+    } catch (deleteError) {
+      setError(deleteError.message);
+      setIsDeleting(false);
+    }
   };
 
   const reorderSteps = (fromIndex, toIndex) => {
@@ -933,16 +890,11 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
       }
 
       if (!isEditMode) {
-        try {
-          await clearDraftInApi();
-        } catch {
-          // Do not block publish redirect if draft cleanup fails.
-        }
-        window.localStorage.removeItem(LOCAL_DRAFT_FALLBACK_KEY);
+        await clearSavedDraft();
       }
 
       const targetProjectId = isEditMode ? projectId : responseData.project?.id;
-      router.push(`/projects/${targetProjectId}`);
+      router.push(`/projects/${targetProjectId}${form.visible ? '' : '/edit?hidden=1'}`);
       router.refresh();
     } catch (submitError) {
       setError(submitError.message);
@@ -951,7 +903,7 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (!isEditMode && localDraftKey && !hasInitializedDraft)) {
     return (
       <section className='section-panel section-panel--tight'>
         <p className='eyebrow'>{isEditMode ? 'Edit project' : 'New project'}</p>
@@ -995,7 +947,7 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
     return (
       <section className='section-panel section-panel--tight'>
         <p className='eyebrow'>Edit project</p>
-        <h1>You can only edit your own projects.</h1>
+        <h1>{error || 'You can only edit your own projects.'}</h1>
         <Link href={`/projects/${projectId}`} className='button'>
           Back to project
         </Link>
@@ -1055,9 +1007,10 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
         </p>
       </div>
 
+      {justSavedHidden && !form.visible ? <p role='status'>Hidden project saved.</p> : null}
       {!isEditMode && draftState ? (
         <div className='draft-indicator'>
-          <p>{draftState}</p>
+          <p role='status'>{draftState}</p>
           <button
             type='button'
             className='button button--ghost'
@@ -1320,6 +1273,7 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
                 <option value='false'>Hidden</option>
               </select>
             </label>
+            <p className='helper-copy'>Only you can open a hidden build on HomeMade. Direct links to its images may still be public.</p>
           </div>
         </div>
 
@@ -1571,10 +1525,10 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
           'https://example.com/reference',
         )}
 
-        {error ? <p className='form-error'>{error}</p> : null}
+        {error ? <p className='form-error' role='alert'>{error}</p> : null}
 
         <div className='page-actions'>
-          <button type='submit' className='button' disabled={isSubmitting}>
+          <button type='submit' className='button' disabled={isSubmitting || isDeleting}>
             {isSubmitting
               ? isEditMode
                 ? 'Saving...'
@@ -1589,6 +1543,11 @@ const ProjectForm = ({ mode = 'create', projectId = null }) => {
           >
             {isEditMode ? 'Back to project' : 'Cancel'}
           </Link>
+          {isEditMode ? (
+            <button type='button' className='button button--ghost' onClick={handleDeleteProject} disabled={isSubmitting || isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete project'}
+            </button>
+          ) : null}
         </div>
       </form>
     </section>

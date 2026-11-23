@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api';
+import { safeReturnTo } from '../../../../lib/return-to.js';
 
 const postJson = async (path, payload) => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -27,25 +28,26 @@ const postJson = async (path, payload) => {
 
 const SignInContent = () => {
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get('returnTo') || '/';
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const googleHref = `${API_BASE_URL}/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
   const githubHref = `${API_BASE_URL}/auth/github?returnTo=${encodeURIComponent(returnTo)}`;
   const microsoftHref = `${API_BASE_URL}/auth/microsoft?returnTo=${encodeURIComponent(returnTo)}`;
-  const appleHref = `${API_BASE_URL}/auth/apple?returnTo=${encodeURIComponent(returnTo)}`;
   const signUpHref = `/auth/sign-up?returnTo=${encodeURIComponent(returnTo)}`;
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [magicEmail, setMagicEmail] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(
+    searchParams.get('error') === 'provider' ? 'Could not sign in with that provider. Try the option you originally used for this account.' : '',
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [providers, setProviders] = useState({
-    google: true,
-    github: true,
-    microsoft: true,
-    apple: true,
+    google: false,
+    github: false,
+    microsoft: false,
   });
+  const [debugLinksEnabled, setDebugLinksEnabled] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -68,10 +70,10 @@ const SignInContent = () => {
           google: Boolean(data.providers.google?.enabled),
           github: Boolean(data.providers.github?.enabled),
           microsoft: Boolean(data.providers.microsoft?.enabled),
-          apple: Boolean(data.providers.apple?.enabled),
         });
+        setDebugLinksEnabled(Boolean(data.emailDebugLinksEnabled));
       } catch {
-        // Keep default visible buttons when provider metadata cannot be loaded.
+        // The existing password sign-in form remains available.
       }
     };
 
@@ -163,11 +165,6 @@ const SignInContent = () => {
                   Continue with Microsoft
                 </a>
               ) : null}
-              {providers.apple ? (
-                <a href={appleHref} className='button button--ghost'>
-                  Continue with Apple
-                </a>
-              ) : null}
             </div>
 
             <p className='auth-separator'>or use email and password</p>
@@ -204,8 +201,8 @@ const SignInContent = () => {
             </p>
           </div>
 
-          <div className='auth-card auth-card--secondary'>
-            <h2>Passwordless option</h2>
+          {debugLinksEnabled ? <div className='auth-card auth-card--secondary'>
+            <h2>Local sign-in link</h2>
             <p className='section-copy'>
               Use a magic link if your account already exists and your email is
               verified.
@@ -225,10 +222,10 @@ const SignInContent = () => {
                 className='button button--ghost'
                 disabled={isSubmitting}
               >
-                Send sign-in link
+                Get local sign-in link
               </button>
             </form>
-          </div>
+          </div> : null}
         </div>
 
         {statusMessage ? (

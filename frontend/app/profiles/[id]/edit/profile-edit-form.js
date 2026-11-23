@@ -102,8 +102,8 @@ const ProfileEditForm = ({ profileId }) => {
 
   const loginHref = useMemo(
     () =>
-      `${session.links.login}?returnTo=${encodeURIComponent(`/profiles/${profileId}/edit`)}`,
-    [profileId, session.links.login],
+      `/auth/sign-in?returnTo=${encodeURIComponent(`/profiles/${profileId}/edit`)}`,
+    [profileId],
   );
 
   const avatarPreview = useMemo(() => {

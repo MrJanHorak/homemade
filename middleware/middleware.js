@@ -9,12 +9,12 @@ const isLoggedIn = (req, res, next) => {
 };
 
 const isApiLoggedIn = (req, res, next) => {
-  if (req.isAuthenticated()) return next();
+  if (req.isAuthenticated() && req.user.profile?._id) return next();
   res.status(401).json({ error: 'Authentication required' });
 };
 
 const isApiAdmin = (req, res, next) => {
-  if (!req.isAuthenticated()) {
+  if (!req.isAuthenticated() || !req.user.profile?._id) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }

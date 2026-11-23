@@ -45,7 +45,9 @@ const SiteHeader = () => {
             />
             <span>Profiles</span>
           </Link>
-          <HeaderSearch />
+          <Suspense>
+            <HeaderSearch />
+          </Suspense>
         </nav>
 
         <Suspense

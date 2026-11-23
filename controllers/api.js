@@ -1,6 +1,8 @@
 import { Chat } from '../models/chat.js';
 import passport from 'passport';
 import sanitizeHtml from 'sanitize-html';
+import { sanitizeRichText } from '../lib/rich-text.js';
+import { authDebugLinksEnabled } from '../lib/auth-email.js';
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
 import { ProjectDraft } from '../models/projectDraft.js';
@@ -19,36 +21,6 @@ const CATEGORY_VALUE_SET = new Set(categoryCatalog.map((entry) => entry.value));
 const CATEGORY_LABEL_SET = new Set(
   categoryCatalog.map((entry) => entry.label.toLowerCase()),
 );
-const RICH_TEXT_ALLOWED_TAGS = [
-  'a',
-  'blockquote',
-  'br',
-  'code',
-  'em',
-  'h2',
-  'h3',
-  'li',
-  'ol',
-  'p',
-  'pre',
-  's',
-  'strong',
-  'table',
-  'tbody',
-  'td',
-  'th',
-  'thead',
-  'tr',
-  'ul',
-];
-const RICH_TEXT_ALLOWED_ATTRIBUTES = {
-  a: ['href', 'target', 'rel'],
-  code: ['class'],
-  pre: ['class'],
-  td: ['colspan', 'rowspan'],
-  th: ['colspan', 'rowspan'],
-};
-
 const getArrayField = (value) => {
   if (Array.isArray(value)) {
     return value;
@@ -65,14 +37,6 @@ const cleanStringArray = (value) =>
   getArrayField(value)
     .map((entry) => entry?.trim())
     .filter(Boolean);
-
-const sanitizeRichText = (value) =>
-  sanitizeHtml(`${value || ''}`, {
-    allowedTags: RICH_TEXT_ALLOWED_TAGS,
-    allowedAttributes: RICH_TEXT_ALLOWED_ATTRIBUTES,
-    allowedSchemes: ['http', 'https', 'mailto'],
-    allowedSchemesAppliedToAttributes: ['href'],
-  }).trim();
 
 const getPlainTextFromRichText = (value) =>
   sanitizeHtml(`${value || ''}`, {
@@ -284,6 +248,10 @@ const parseJsonObject = (value) => {
 const getBackendBaseUrl = (req) =>
   process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
 
+const canViewProject = (project, profileId) =>
+  project?.visible === true ||
+  Boolean(profileId && project?.owner?.equals(profileId));
+
 const PROJECT_SORT_OPTIONS = new Set([
   'latest',
   'newest',
@@ -465,11 +433,13 @@ const getEnabledAuthProviders = (req) => {
 const getAuthProviders = (req, res) => {
   res.json({
     providers: getEnabledAuthProviders(req),
+    emailDebugLinksEnabled: authDebugLinksEnabled(),
   });
 };
 
 const getSession = (req, res) => {
-  const authenticated = req.isAuthenticated();
+  res.set('Cache-Control', 'private, no-store');
+  const authenticated = Boolean(req.isAuthenticated() && req.user.profile?._id);
   const backendBaseUrl = getBackendBaseUrl(req);
   const providers = getEnabledAuthProviders(req);
 
@@ -505,7 +475,11 @@ const getSession = (req, res) => {
 };
 
 const getProjects = async (req, res) => {
-  const pagination = normalizePagination(req.query.limit, req.query.page);
+  const requestedLimit = Number.parseInt(req.query.limit, 10);
+  const pagination = normalizePagination(
+    requestedLimit > 0 ? requestedLimit : 12,
+    req.query.page,
+  );
   const sort = normalizeProjectSort(req.query.sort);
   const categoryFilter = normalizeProjectCategoryFilter(req.query.category);
   const queryFilter = normalizeProjectQueryFilter(
@@ -518,7 +492,7 @@ const getProjects = async (req, res) => {
   );
 
   const query = Project.find(projectQuery).sort(buildProjectSortSpec(sort));
-  const useDatabaseLimit = pagination.enabled && sort !== 'rating';
+  const useDatabaseLimit = sort !== 'rating';
 
   if (useDatabaseLimit) {
     query.skip(pagination.skip).limit(pagination.limit);
@@ -527,22 +501,12 @@ const getProjects = async (req, res) => {
   const projects = await query.exec();
   const serialized = projects.map((project) => serializeProject(project));
   const sorted = applyProjectSort(serialized, sort);
-  const result =
-    pagination.enabled && sort === 'rating'
-      ? sorted.slice(pagination.skip, pagination.skip + pagination.limit)
-      : sorted;
-
-  if (!pagination.enabled) {
-    res.json({
-      projects: result,
-    });
-    return;
-  }
+  const result = useDatabaseLimit
+    ? sorted
+    : sorted.slice(pagination.skip, pagination.skip + pagination.limit);
 
   const total =
-    sort === 'rating' && !useDatabaseLimit
-      ? sorted.length
-      : await Project.countDocuments(projectQuery).exec();
+    useDatabaseLimit ? await Project.countDocuments(projectQuery).exec() : sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / pagination.limit));
 
   res.json({
@@ -564,9 +528,10 @@ const getProjects = async (req, res) => {
 };
 
 const getProject = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   const project = await Project.findById(req.params.id).exec();
 
-  if (!project) {
+  if (!canViewProject(project, req.user?.profile?._id)) {
     res.status(404).json({ error: 'Project not found' });
     return;
   }
@@ -577,6 +542,7 @@ const getProject = async (req, res) => {
 };
 
 const getProjectDraft = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   const draft = await ProjectDraft.findOne({
     owner: req.user.profile._id,
   })
@@ -591,6 +557,7 @@ const getProjectDraft = async (req, res) => {
   }
 
   res.json({
+    updatedAt: draft.updatedAt,
     draft: {
       title: draft.title || '',
       description: draft.description || '',
@@ -953,18 +920,41 @@ const updateProject = async (req, res) => {
   });
 };
 
-const addProjectComment = async (req, res) => {
-  const project = await Project.findById(req.params.id).exec();
+const deleteProject = async (req, res) => {
+  const deleted = await Project.findOneAndDelete({
+    _id: req.params.id,
+    owner: req.user.profile._id,
+  }).exec();
 
-  if (!project) {
+  if (!deleted) {
     res.status(404).json({ error: 'Project not found' });
     return;
   }
 
-  const content = req.body.content?.trim();
-  const rating = Number.parseInt(req.body.rating, 10);
+  res.sendStatus(204);
+};
 
-  if (!content && !Number.isInteger(rating)) {
+const addProjectComment = async (req, res) => {
+  const project = await Project.findById(req.params.id).exec();
+
+  if (!canViewProject(project, req.user.profile._id)) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+  const rawRating = req.body.rating;
+  const hasRating = rawRating !== undefined && rawRating !== null && rawRating !== '';
+  const rating = typeof rawRating === 'number' || typeof rawRating === 'string'
+    ? Number(rawRating)
+    : NaN;
+
+  if (hasRating && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+    res.status(400).json({ error: 'Rating must be a whole number from 1 to 5' });
+    return;
+  }
+
+  if (!content && !hasRating) {
     res.status(400).json({ error: 'A rating or comment is required' });
     return;
   }
@@ -978,14 +968,14 @@ const addProjectComment = async (req, res) => {
 
   const isOwner = project.owner?.equals(currentProfile._id);
 
-  if (isOwner && Number.isInteger(rating) && rating >= 1 && rating <= 5) {
+  if (isOwner && hasRating) {
     res.status(403).json({
       error: 'You cannot rate your own project',
     });
     return;
   }
 
-  if (Number.isInteger(rating) && rating >= 1 && rating <= 5) {
+  if (hasRating) {
     const existingRatings = getStructuredRatings(project);
     const existingEntry = existingRatings.find((entry) =>
       entry.owner?.equals(currentProfile._id),
@@ -1015,9 +1005,9 @@ const addProjectComment = async (req, res) => {
 };
 
 const getProjectSaveStatus = async (req, res) => {
-  const project = await Project.findById(req.params.id).select('_id').exec();
+  const project = await Project.findById(req.params.id).select('visible owner').exec();
 
-  if (!project) {
+  if (!canViewProject(project, req.user.profile._id)) {
     res.status(404).json({ error: 'Project not found' });
     return;
   }
@@ -1040,31 +1030,26 @@ const getProjectSaveStatus = async (req, res) => {
 
 const saveProject = async (req, res) => {
   const project = await Project.findById(req.params.id).exec();
+  const profileId = req.user.profile._id;
 
-  if (!project) {
+  if (!canViewProject(project, profileId)) {
     res.status(404).json({ error: 'Project not found' });
     return;
   }
 
-  const profile = await Profile.findById(req.user.profile._id).exec();
-
-  if (!profile) {
-    res.status(404).json({ error: 'Profile not found' });
-    return;
-  }
-
-  if (project.owner?.equals(profile._id)) {
+  if (project.owner?.equals(profileId)) {
     res.status(400).json({ error: 'You cannot save your own project' });
     return;
   }
 
-  const alreadySaved = (profile.saves || []).some((entry) =>
-    entry.equals(project._id),
-  );
-
-  if (!alreadySaved) {
-    profile.saves.push(project._id);
-    await profile.save();
+  const profile = await Profile.findByIdAndUpdate(
+    profileId,
+    { $addToSet: { saves: project._id } },
+    { new: true },
+  ).select('saves').exec();
+  if (!profile) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
   }
 
   res.json({
@@ -1074,24 +1059,16 @@ const saveProject = async (req, res) => {
 };
 
 const unsaveProject = async (req, res) => {
-  const project = await Project.findById(req.params.id).select('_id').exec();
-
-  if (!project) {
-    res.status(404).json({ error: 'Project not found' });
-    return;
-  }
-
-  const profile = await Profile.findById(req.user.profile._id).exec();
+  const profile = await Profile.findByIdAndUpdate(
+    req.user.profile._id,
+    { $pull: { saves: req.params.id } },
+    { new: true },
+  ).select('saves').exec();
 
   if (!profile) {
     res.status(404).json({ error: 'Profile not found' });
     return;
   }
-
-  profile.saves = (profile.saves || []).filter(
-    (entry) => !entry.equals(project._id),
-  );
-  await profile.save();
 
   res.json({
     saved: false,
@@ -1230,6 +1207,7 @@ const getProfiles = async (req, res) => {
 };
 
 const getProfile = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   const profile = await Profile.findById(req.params.id).exec();
 
   if (!profile) {
@@ -1237,18 +1215,17 @@ const getProfile = async (req, res) => {
     return;
   }
 
-  const projects = await Project.find({
-    owner: req.params.id,
-    visible: true,
-  })
+  const isSelf = Boolean(req.user?.profile?._id?.equals(profile._id));
+  const filter = { owner: profile._id };
+  if (!isSelf) filter.visible = true;
+  const projects = await Project.find(filter)
     .sort({ title: 1 })
     .exec();
 
-  const authenticated = req.isAuthenticated();
-  const isSelf = authenticated && req.user.profile._id.equals(profile._id);
-
   res.json({
-    profile: serializeProfile(profile, { projectCount: projects.length }),
+    profile: serializeProfile(profile, {
+      projectCount: projects.filter((project) => project.visible === true).length,
+    }),
     projects: projects.map((project) => serializeProject(project)),
     isSelf,
   });
@@ -1275,8 +1252,7 @@ const updateProfile = async (req, res) => {
   }
 
   if (req.file) {
-    const avatarFileName = await profilePicstoS3(req.file);
-    profile.avatar = `https://homemadesocialsite.s3.amazonaws.com/profiles/${avatarFileName}`;
+    profile.avatar = await profilePicstoS3(req.file);
   }
 
   const social = parseJsonObject(req.body.social);
@@ -1308,21 +1284,18 @@ const updateProfile = async (req, res) => {
 };
 
 const searchProjects = async (req, res) => {
-  const query = req.query.query?.trim();
+  const query = typeof req.query.query === 'string'
+    ? normalizeProjectQueryFilter(req.query.query)
+    : null;
 
   if (!query) {
     res.json({ results: [], query: '' });
     return;
   }
 
-  const results = await Project.find({
-    visible: true,
-    $or: [
-      { title: { $regex: query, $options: 'i' } },
-      { description: { $regex: query, $options: 'i' } },
-    ],
-  })
+  const results = await Project.find(applyProjectQueryToFilter({ visible: true }, query))
     .sort({ title: 1 })
+    .limit(MAX_PROJECTS_PAGE_SIZE)
     .exec();
 
   res.json({
@@ -1382,8 +1355,13 @@ const createChat = async (req, res) => {
   const user1Id = req.user.profile._id;
   const user2Id = req.body.user2;
 
-  if (!user2Id) {
-    res.status(400).json({ error: 'user2 is required' });
+  if (typeof user2Id !== 'string' || !/^[a-f\d]{24}$/i.test(user2Id) || user1Id.equals(user2Id)) {
+    res.status(400).json({ error: 'Choose another maker to start a conversation' });
+    return;
+  }
+
+  if (!(await Profile.exists({ _id: user2Id }))) {
+    res.status(404).json({ error: 'Profile not found' });
     return;
   }
 
@@ -1565,6 +1543,7 @@ export {
   editChatMessage,
   hideChat,
   createProject,
+  deleteProject,
   deleteProjectDraft,
   getChat,
   getCategories,

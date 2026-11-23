@@ -1,60 +1,35 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
-// Set the AWS region
-const REGION = 'us-east-1'; //e.g. "us-east-1"
+const uploadImages = async (prefix, files) => {
+  const region = process.env.AWS_REGION || 'us-east-1';
+  const bucket = process.env.S3_BUCKET || process.env.AWS_BUCKET_NAME;
+  if (!bucket) throw new Error('S3 bucket is not configured');
 
-const projectPicstoS3 = async (files) => {
-  console.log('uploading to s3', files);
-  let urls = [];
+  const s3 = new S3Client({ region });
+  try {
+    const attempts = await Promise.allSettled(files.map(async (file) => {
+      const name = `${randomUUID()}-${file.originalname}`;
+      await s3.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: `${prefix}/${name}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }));
 
-  const s3 = new S3Client({
-    region: REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  });
-
-  const uploadPromises = files.map(async (file) => {
-    const fileName = `projects/${uuidv4()}-${file.originalname}`;
-    urls.push(
-      `https://homemadesocialsite.s3.amazonaws.com/${fileName}`
-    );
-    const params = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: fileName,
-      Body: file.buffer,
-    };
-
-    const command = new PutObjectCommand(params);
-    const result = await s3.send(command);
-
-    return result;
-  });
-
-  const results = await Promise.all(uploadPromises);
-
-  return urls;
+      const domain = region === 'us-east-1' ? 's3.amazonaws.com' : `s3.${region}.amazonaws.com`;
+      return `https://${bucket}.${domain}/${prefix}/${encodeURIComponent(name)}`;
+    }));
+    return attempts.map((attempt) => {
+      if (attempt.status === 'rejected') throw attempt.reason;
+      return attempt.value;
+    });
+  } finally {
+    s3.destroy();
+  }
 };
 
-const profilePicstoS3 = async (file) => {
-
-  const fileName = `${uuidv4()}-${file.originalname}`;
-  const s3 = new S3Client({
-    region: REGION,
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  });
-
-  const params = {
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: `profiles/${fileName}`,
-    Body: file.buffer,
-  };
-
-  const command = new PutObjectCommand(params);
-  const result = await s3.send(command);
-
-  return fileName;
-};
+const projectPicstoS3 = (files) => uploadImages('projects', files);
+const profilePicstoS3 = async (file) => (await uploadImages('profiles', [file]))[0];
 
 export { projectPicstoS3, profilePicstoS3 };

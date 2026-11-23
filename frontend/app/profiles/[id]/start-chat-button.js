@@ -24,7 +24,7 @@ const StartChatButton = ({ profileId }) => {
       });
 
       if (response.status === 401) {
-        window.location.href = `${API_BASE_URL}/auth/google?returnTo=${encodeURIComponent(`/profiles/${profileId}`)}`;
+        window.location.href = `/auth/sign-in?returnTo=${encodeURIComponent(`/profiles/${profileId}`)}`;
         return;
       }
 

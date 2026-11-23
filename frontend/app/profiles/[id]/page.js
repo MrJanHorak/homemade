@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import StartChatButton from './start-chat-button';
 import ProjectCard from '@/components/project-card';
-import { fetchApi } from '@/lib/api';
+import { fetchForViewer } from '@/lib/server-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +21,7 @@ const formatDate = (value) => {
 const ProfileDetailPage = async ({ params }) => {
   const { id } = await params;
 
-  const response = await fetchApi(`/api/profiles/${id}`, {
-    cache: 'no-store',
-  });
+  const response = await fetchForViewer(`/api/profiles/${encodeURIComponent(id)}`);
 
   if (response.status === 404) {
     notFound();
@@ -123,7 +121,7 @@ const ProfileDetailPage = async ({ params }) => {
         <div className='section-panel__header'>
           <div>
             <p className='eyebrow'>Projects</p>
-            <h2>Published by {isSelf ? 'you' : profile.name}</h2>
+            <h2>{isSelf ? 'My projects' : `Published by ${profile.name}`}</h2>
           </div>
         </div>
 

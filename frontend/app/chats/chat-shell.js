@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 
@@ -27,6 +28,7 @@ const formatTimestamp = (value) => {
 };
 
 const ChatShell = ({ chatId }) => {
+  const router = useRouter();
   const [session, setSession] = useState(emptySession);
   const [chats, setChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
@@ -182,13 +184,17 @@ const ChatShell = ({ chatId }) => {
   };
 
   const handleHideChat = async (hideChatId) => {
-    await fetch(`${API_BASE_URL}/api/chats/${hideChatId}/hide`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    setChats((prev) => prev.filter((c) => c.id !== hideChatId));
-    if (chatId === hideChatId) {
-      setActiveChat(null);
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chats/${hideChatId}/hide`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Unable to hide this conversation.');
+      setChats((prev) => prev.filter((chat) => chat.id !== hideChatId));
+      if (chatId === hideChatId) router.replace('/chats');
+    } catch {
+      setError('Unable to hide this conversation. Try again.');
     }
   };
 
@@ -249,10 +255,10 @@ const ChatShell = ({ chatId }) => {
         <h1>Sign in to view your chats.</h1>
         <div className='page-actions'>
           <a
-            href={`${API_BASE_URL}/auth/google?returnTo=${encodeURIComponent(returnTo)}`}
+            href={`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
             className='button'
           >
-            Sign in with Google
+            Sign in
           </a>
           <Link href='/profiles' className='button button--ghost'>
             Browse makers

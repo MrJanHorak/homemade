@@ -1,38 +1,10 @@
 'use client';
 
-import DOMPurify from 'dompurify';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import CommentForm from './comment-form';
 import ProjectActions from './project-actions';
 
 const MAX_RATING = 5;
-
-const sanitizeRichText = (value) =>
-  DOMPurify.sanitize(`${value || ''}`, {
-    ALLOWED_TAGS: [
-      'a',
-      'blockquote',
-      'br',
-      'code',
-      'em',
-      'h2',
-      'h3',
-      'li',
-      'ol',
-      'p',
-      'pre',
-      's',
-      'strong',
-      'table',
-      'tbody',
-      'td',
-      'th',
-      'thead',
-      'tr',
-      'ul',
-    ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'colspan', 'rowspan', 'class'],
-  });
 
 const formatDate = (value) => {
   if (!value) {
@@ -117,6 +89,19 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
     index: 0,
     title: '',
   });
+  const dialogRef = useRef(null);
+  const openerRef = useRef(null);
+
+  useEffect(() => {
+    if (!lightbox.isOpen) return;
+    const dialog = dialogRef.current;
+    const opener = openerRef.current;
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [lightbox.isOpen]);
 
   const allProjectImages = useMemo(
     () => (Array.isArray(project.buildPictures) ? project.buildPictures : []),
@@ -126,24 +111,12 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
     allProjectImages.length > 0
       ? allProjectImages
       : ['https://placehold.co/1200x800?text=Homemade'];
-  const sanitizedDescription = useMemo(
-    () => sanitizeRichText(project.description),
-    [project.description],
-  );
-  const sanitizedInstructions = useMemo(
-    () =>
-      parsedInstructions.map((instruction) => ({
-        ...instruction,
-        content: sanitizeRichText(instruction.content),
-      })),
-    [parsedInstructions],
-  );
-
-  const openLightbox = (images, index, title) => {
+  const openLightbox = (images, index, title, opener) => {
     if (!images.length) {
       return;
     }
 
+    openerRef.current = opener;
     setLightbox({
       isOpen: true,
       images,
@@ -206,13 +179,16 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
   return (
     <div className='page-stack'>
       <section className='detail-hero'>
-        <button
-          type='button'
-          className='detail-hero__media detail-hero__media-button'
-          onClick={() => openLightbox(heroImages, heroIndex, project.title)}
-        >
+        <div className='detail-hero__media detail-hero__media-container'>
+          <button
+            type='button'
+            className='detail-hero__media-button'
+            onClick={(event) => openLightbox(heroImages, heroIndex, project.title, event.currentTarget)}
+            aria-label={`Enlarge ${project.title} photo ${heroIndex + 1}`}
+          >
           <img src={heroImages[heroIndex]} alt={project.title} />
           <span className='detail-hero__zoom-hint'>Click to enlarge</span>
+          </button>
 
           {heroImages.length > 1 ? (
             <>
@@ -256,14 +232,14 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
               </div>
             </>
           ) : null}
-        </button>
+        </div>
 
         <div className='detail-hero__content'>
           <p className='eyebrow'>Project detail</p>
           <h1>{project.title}</h1>
           <div
             className='detail-copy rich-content'
-            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+            dangerouslySetInnerHTML={{ __html: project.description }}
           />
 
           <div className='metric-grid'>
@@ -309,7 +285,7 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
         <article className='section-panel'>
           <h2>Build instructions</h2>
           <ol className='step-list'>
-            {sanitizedInstructions.map((instruction, index) => {
+            {parsedInstructions.map((instruction, index) => {
               const stepNumber = index + 1;
               const hasImages = instruction.images.length > 0;
 
@@ -338,11 +314,12 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
                             key={`${imageUrl}-${imageIndex}`}
                             type='button'
                             className='step-card__image-button'
-                            onClick={() =>
+                            onClick={(event) =>
                               openLightbox(
                                 instruction.images,
                                 imageIndex,
                                 `Step ${stepNumber}`,
+                                event.currentTarget,
                               )
                             }
                           >
@@ -373,11 +350,12 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
                             key={`${imageUrl}-${imageIndex}`}
                             type='button'
                             className='step-card__image-button'
-                            onClick={() =>
+                            onClick={(event) =>
                               openLightbox(
                                 instruction.images,
                                 imageIndex,
                                 `Step ${stepNumber}`,
+                                event.currentTarget,
                               )
                             }
                           >
@@ -467,19 +445,24 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
       </section>
 
       {lightbox.isOpen ? (
-        <div
+        <dialog
+          ref={dialogRef}
           className='lightbox'
-          role='dialog'
-          aria-modal='true'
           aria-label='Image preview'
-          onClick={closeLightbox}
+          onCancel={(event) => { event.preventDefault(); closeLightbox(); }}
+          onClick={(event) => { if (event.target === event.currentTarget) closeLightbox(); }}
+          onKeyDown={(event) => {
+            if (lightbox.images.length < 2) return;
+            if (event.key === 'ArrowLeft') { event.preventDefault(); showPrevious(); }
+            if (event.key === 'ArrowRight') { event.preventDefault(); showNext(); }
+          }}
         >
           <div
             className='lightbox__content'
             onClick={(event) => event.stopPropagation()}
           >
             <div className='lightbox__toolbar'>
-              <p>
+              <p aria-live='polite' aria-atomic='true'>
                 {lightbox.title} - {lightbox.index + 1} /{' '}
                 {lightbox.images.length}
               </p>
@@ -487,6 +470,7 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
                 type='button'
                 className='button button--ghost'
                 onClick={closeLightbox}
+                autoFocus
               >
                 Close
               </button>
@@ -520,7 +504,7 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
               ) : null}
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );

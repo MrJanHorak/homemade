@@ -4,12 +4,13 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api';
+import { safeReturnTo } from '../../../../lib/return-to.js';
 
 const MagicLinkContent = () => {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
   const returnTo = useMemo(
-    () => searchParams.get('returnTo') || '/',
+    () => safeReturnTo(searchParams.get('returnTo')),
     [searchParams],
   );
   const [status, setStatus] = useState('Signing you in...');
@@ -45,7 +46,7 @@ const MagicLinkContent = () => {
 
         setStatus('Signed in. Redirecting...');
         window.setTimeout(() => {
-          window.location.assign(returnTo);
+          window.location.replace(returnTo);
         }, 800);
       } catch (error) {
         setStatus(error.message);

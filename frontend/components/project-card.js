@@ -116,6 +116,7 @@ const ProjectCard = ({ project, diyTone = 'minimal', isSaved = false }) => {
       <div className='project-card__content'>
         <div className='project-card__eyebrow'>
           <span>{project.ownerName || 'Community project'}</span>
+          {project.visible === false ? <span className='tag'>Hidden</span> : null}
           {isSaved ? (
             <span className='project-card__saved-chip'>Saved</span>
           ) : null}

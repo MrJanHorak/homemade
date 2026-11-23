@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import { promisify } from 'node:util';
 import passport from 'passport';
 import { Profile } from '../models/profile.js';
 import { User } from '../models/user.js';
+import { authDebugLinksEnabled } from '../lib/auth-email.js';
+import { safeReturnTo } from '../lib/return-to.js';
 
 const router = Router();
 const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 1024;
+const scrypt = promisify(crypto.scrypt);
 const EMAIL_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
 
@@ -27,23 +32,23 @@ const buildAvatarFromName = (name) => {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`;
 };
 
-const hashPassword = (
+const hashPassword = async (
   password,
   salt = crypto.randomBytes(16).toString('hex'),
 ) => {
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  const hash = (await scrypt(password, salt, 64)).toString('hex');
   return {
     salt,
     hash,
   };
 };
 
-const verifyPassword = (password, salt, storedHash) => {
+const verifyPassword = async (password, salt, storedHash) => {
   if (!salt || !storedHash) {
     return false;
   }
 
-  const computedHash = crypto.scryptSync(password, salt, 64);
+  const computedHash = await scrypt(password, salt, 64);
   const storedHashBuffer = Buffer.from(storedHash, 'hex');
 
   if (storedHashBuffer.length !== computedHash.length) {
@@ -80,18 +85,6 @@ const getFrontendBaseUrl = () => {
   return '/';
 };
 
-const sanitizeReturnTo = (returnTo) => {
-  if (typeof returnTo !== 'string') {
-    return null;
-  }
-
-  if (!returnTo.startsWith('/') || returnTo.startsWith('//')) {
-    return null;
-  }
-
-  return returnTo;
-};
-
 const buildFrontendRedirect = (returnTo = '/') => {
   const frontendBaseUrl = getFrontendBaseUrl();
 
@@ -103,12 +96,7 @@ const buildFrontendRedirect = (returnTo = '/') => {
 };
 
 const storeReturnTo = (req, res, next) => {
-  const returnTo = sanitizeReturnTo(req.query.returnTo);
-
-  if (returnTo) {
-    req.session.returnTo = returnTo;
-  }
-
+  req.session.returnTo = safeReturnTo(req.query.returnTo);
   next();
 };
 
@@ -121,21 +109,27 @@ const ensureStrategyEnabled = (strategyName) => (req, res, next) => {
   res.status(503).json({ error: `${strategyName} sign-in is not configured.` });
 };
 
-const finalizeSocialLogin = (req, res) => {
-  const returnTo = sanitizeReturnTo(req.session.returnTo) || '/';
-  delete req.session.returnTo;
-  res.redirect(buildFrontendRedirect(returnTo));
+const finishSocialLogin = (strategy) => (req, res, next) => {
+  const returnTo = safeReturnTo(req.session.returnTo);
+  const signInQuery = new URLSearchParams({ returnTo, error: 'provider' });
+  passport.authenticate(strategy, {
+    failureRedirect: buildFrontendRedirect(`/auth/sign-in?${signInQuery}`),
+  })(req, res, (error) => {
+    if (error) return next(error);
+    res.redirect(buildFrontendRedirect(returnTo));
+  });
 };
 
-const buildVerificationLink = (token) => {
+const buildVerificationLink = (token, returnTo) => {
   const frontendBaseUrl = getFrontendBaseUrl();
+  const query = new URLSearchParams({ token, returnTo });
 
   if (frontendBaseUrl === '/') {
-    return `/auth/verify-email?token=${encodeURIComponent(token)}`;
+    return `/auth/verify-email?${query}`;
   }
 
   return new URL(
-    `/auth/verify-email?token=${encodeURIComponent(token)}`,
+    `/auth/verify-email?${query}`,
     frontendBaseUrl,
   ).toString();
 };
@@ -154,16 +148,12 @@ const buildMagicLink = (token, returnTo = '/') => {
   return new URL(`/auth/magic-link?${query}`, frontendBaseUrl).toString();
 };
 
-const sendAuthEmail = async ({ to, subject, body, link }) => {
-  // MVP delivery path: log links in development so flows are testable without SMTP.
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[auth-email] ${subject} -> ${to}`);
-    console.log(`[auth-email] ${body}`);
-    console.log(`[auth-email] ${link}`);
-  }
+const requireEmailDelivery = (req, res, next) => {
+  if (authDebugLinksEnabled()) return next();
+  res.status(503).json({ error: 'Email delivery is unavailable. Choose another sign-in option.' });
 };
 
-router.post('/signup', async (req, res, next) => {
+router.post('/signup', requireEmailDelivery, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);
     const password =
@@ -176,11 +166,11 @@ router.post('/signup', async (req, res, next) => {
       return;
     }
 
-    if (password.length < PASSWORD_MIN_LENGTH) {
+    if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
       res
         .status(400)
         .json({
-          error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
+          error: `Password must be ${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} characters.`,
         });
       return;
     }
@@ -194,7 +184,7 @@ router.post('/signup', async (req, res, next) => {
       return;
     }
 
-    const { salt, hash } = hashPassword(password);
+    const { salt, hash } = await hashPassword(password);
     const token = createToken();
     const tokenHash = hashToken(token);
     const tokenExpiresAt = new Date(Date.now() + EMAIL_TOKEN_TTL_MS);
@@ -219,19 +209,9 @@ router.post('/signup', async (req, res, next) => {
 
     await user.save();
 
-    const verificationLink = buildVerificationLink(token);
-
-    await sendAuthEmail({
-      to: email,
-      subject: 'Verify your Homemade account',
-      body: 'Click the link below to verify your account.',
-      link: verificationLink,
-    });
-
     res.status(201).json({
-      message: 'Account created. Check your email to verify your account.',
-      verificationLink:
-        process.env.NODE_ENV !== 'production' ? verificationLink : undefined,
+      message: 'Account created. Use the local verification link to continue.',
+      verificationLink: buildVerificationLink(token, safeReturnTo(req.body.returnTo)),
     });
   } catch (error) {
     next(error);
@@ -250,7 +230,7 @@ router.post('/login', async (req, res, next) => {
       return;
     }
 
-    const validPassword = verifyPassword(
+    const validPassword = password.length <= PASSWORD_MAX_LENGTH && await verifyPassword(
       password,
       user.passwordSalt,
       user.passwordHash,
@@ -285,10 +265,11 @@ router.post('/verify-email', async (req, res, next) => {
     }
 
     const tokenHash = hashToken(token);
-    const user = await User.findOne({
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationExpiresAt: { $gt: new Date() },
-    }).exec();
+    const user = await User.findOneAndUpdate(
+      { emailVerificationTokenHash: tokenHash, emailVerificationExpiresAt: { $gt: new Date() } },
+      { $set: { emailVerified: true }, $unset: { emailVerificationTokenHash: 1, emailVerificationExpiresAt: 1 } },
+      { new: true },
+    ).exec();
 
     if (!user) {
       res
@@ -296,11 +277,6 @@ router.post('/verify-email', async (req, res, next) => {
         .json({ error: 'This verification link is invalid or expired.' });
       return;
     }
-
-    user.emailVerified = true;
-    user.emailVerificationTokenHash = undefined;
-    user.emailVerificationExpiresAt = undefined;
-    await user.save();
 
     await loginUser(req, user);
 
@@ -310,10 +286,10 @@ router.post('/verify-email', async (req, res, next) => {
   }
 });
 
-router.post('/magic-link/request', async (req, res, next) => {
+router.post('/magic-link/request', requireEmailDelivery, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);
-    const returnTo = sanitizeReturnTo(req.body.returnTo) || '/';
+    const returnTo = safeReturnTo(req.body.returnTo);
 
     const user = await User.findOne({ email }).exec();
 
@@ -325,25 +301,15 @@ router.post('/magic-link/request', async (req, res, next) => {
       user.magicLoginExpiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS);
       await user.save();
 
-      const magicLink = buildMagicLink(token, returnTo);
-
-      await sendAuthEmail({
-        to: email,
-        subject: 'Your Homemade sign-in link',
-        body: 'Click the link below to sign in.',
-        link: magicLink,
-      });
-
       res.json({
-        message: 'If an account exists, a sign-in link has been sent.',
-        magicLink:
-          process.env.NODE_ENV !== 'production' ? magicLink : undefined,
+        message: 'Use the local sign-in link to continue.',
+        magicLink: buildMagicLink(token, returnTo),
       });
       return;
     }
 
     res.json({
-      message: 'If an account exists, a sign-in link has been sent.',
+      message: 'No local sign-in link was generated.',
     });
   } catch (error) {
     next(error);
@@ -361,20 +327,16 @@ router.post('/magic-link/consume', async (req, res, next) => {
     }
 
     const tokenHash = hashToken(token);
-    const user = await User.findOne({
-      magicLoginTokenHash: tokenHash,
-      magicLoginExpiresAt: { $gt: new Date() },
-    }).exec();
+    const user = await User.findOneAndUpdate(
+      { magicLoginTokenHash: tokenHash, magicLoginExpiresAt: { $gt: new Date() }, emailVerified: true },
+      { $unset: { magicLoginTokenHash: 1, magicLoginExpiresAt: 1 } },
+      { new: true },
+    ).exec();
 
     if (!user) {
       res.status(400).json({ error: 'This magic link is invalid or expired.' });
       return;
     }
-
-    user.magicLoginTokenHash = undefined;
-    user.magicLoginExpiresAt = undefined;
-    user.emailVerified = true;
-    await user.save();
 
     await loginUser(req, user);
 
@@ -384,7 +346,7 @@ router.post('/magic-link/consume', async (req, res, next) => {
   }
 });
 
-router.post('/verify-email/resend', async (req, res, next) => {
+router.post('/verify-email/resend', requireEmailDelivery, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);
     const user = await User.findOne({ email }).exec();
@@ -392,7 +354,7 @@ router.post('/verify-email/resend', async (req, res, next) => {
     if (!user || user.emailVerified) {
       res.json({
         message:
-          'If an unverified account exists, a verification email was sent.',
+          'No local verification link was generated.',
       });
       return;
     }
@@ -402,20 +364,9 @@ router.post('/verify-email/resend', async (req, res, next) => {
     user.emailVerificationExpiresAt = new Date(Date.now() + EMAIL_TOKEN_TTL_MS);
     await user.save();
 
-    const verificationLink = buildVerificationLink(token);
-
-    await sendAuthEmail({
-      to: email,
-      subject: 'Verify your Homemade account',
-      body: 'Click the link below to verify your account.',
-      link: verificationLink,
-    });
-
     res.json({
-      message:
-        'If an unverified account exists, a verification email was sent.',
-      verificationLink:
-        process.env.NODE_ENV !== 'production' ? verificationLink : undefined,
+      message: 'Use the local verification link to continue.',
+      verificationLink: buildVerificationLink(token, safeReturnTo(req.body.returnTo)),
     });
   } catch (error) {
     next(error);
@@ -432,10 +383,7 @@ router.get(
 router.get(
   '/google/oauth2callback',
   ensureStrategyEnabled('google'),
-  passport.authenticate('google', {
-    failureRedirect: '/auth/google',
-  }),
-  finalizeSocialLogin,
+  finishSocialLogin('google'),
 );
 
 router.get(
@@ -448,10 +396,7 @@ router.get(
 router.get(
   '/github/callback',
   ensureStrategyEnabled('github'),
-  passport.authenticate('github', {
-    failureRedirect: '/auth/github',
-  }),
-  finalizeSocialLogin,
+  finishSocialLogin('github'),
 );
 
 router.get(
@@ -464,39 +409,17 @@ router.get(
 router.get(
   '/microsoft/callback',
   ensureStrategyEnabled('microsoft'),
-  passport.authenticate('microsoft', {
-    failureRedirect: '/auth/microsoft',
-  }),
-  finalizeSocialLogin,
+  finishSocialLogin('microsoft'),
 );
 
-router.get(
-  '/apple',
-  ensureStrategyEnabled('apple'),
-  storeReturnTo,
-  passport.authenticate('apple'),
-);
-
-router.get(
-  '/apple/callback',
-  ensureStrategyEnabled('apple'),
-  passport.authenticate('apple', {
-    failureRedirect: '/auth/apple',
-  }),
-  finalizeSocialLogin,
-);
-
-router.post(
-  '/apple/callback',
-  ensureStrategyEnabled('apple'),
-  passport.authenticate('apple', {
-    failureRedirect: '/auth/apple',
-  }),
-  finalizeSocialLogin,
-);
-
-router.get('/logout', function (req, res) {
-  req.logout(() => res.redirect(buildFrontendRedirect('/')));
+router.post('/logout', function (req, res, next) {
+  req.logout((error) => {
+    if (error) return next(error);
+    req.session.destroy((destroyError) => {
+      if (destroyError) return next(destroyError);
+      res.clearCookie('connect.sid').sendStatus(204);
+    });
+  });
 });
 
 export { router };

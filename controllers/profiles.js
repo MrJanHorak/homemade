@@ -71,8 +71,7 @@ const update = async (req, res) => {
   console.log(req.body);
   try {
     if (req.file) {
-      const url = await profilePicstoS3(req.file);
-      req.body.avatar = `https://homemadesocialsite.s3.amazonaws.com/profiles/${url}`;
+      req.body.avatar = await profilePicstoS3(req.file);
     }
 
     const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, {
