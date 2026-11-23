@@ -1,44 +1,12 @@
-import ProjectCard from '@/components/project-card';
-import { getJson } from '@/lib/api';
-
-export const dynamic = 'force-dynamic';
+import { redirect } from 'next/navigation';
 
 const SearchPage = async ({ searchParams }) => {
   const params = await searchParams;
-  const query = typeof params.query === 'string' ? params.query : '';
-  const { results } = await getJson(
-    `/api/search?query=${encodeURIComponent(query)}`,
-    {
-      cache: 'no-store',
-    },
-  );
-
-  return (
-    <div className='page-stack'>
-      <section className='section-panel section-panel--tight'>
-        <div className='section-panel__header'>
-          <div>
-            <p className='eyebrow'>Search</p>
-            <h1>{query ? `Results for “${query}”` : 'Search the workshop'}</h1>
-          </div>
-          <p className='section-copy'>
-            Search titles and descriptions to find a build, technique, or
-            toolchain.
-          </p>
-        </div>
-
-        {results.length ? (
-          <div className='project-grid'>
-            {results.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        ) : (
-          <p className='empty-copy'>No matching projects yet.</p>
-        )}
-      </section>
-    </div>
-  );
+  const value = Array.isArray(params?.query) ? params.query[0] : params?.query;
+  const query = typeof value === 'string' ? value.trim().slice(0, 120) : '';
+  const destination = new URLSearchParams();
+  if (query) destination.set('query', query);
+  redirect(destination.size ? `/projects?${destination}` : '/projects');
 };
 
 export default SearchPage;

@@ -11,6 +11,7 @@ const HeaderSearch = () => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
+  const toggleRef = useRef(null);
 
   const buildProjectsUrl = (query) => {
     const params = new URLSearchParams();
@@ -52,8 +53,9 @@ const HeaderSearch = () => {
     };
 
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && containerRef.current?.contains(document.activeElement)) {
         setIsOpen(false);
+        toggleRef.current?.focus();
       }
     };
 
@@ -95,6 +97,7 @@ const HeaderSearch = () => {
       onSubmit={handleSubmit}
     >
       <button
+        ref={toggleRef}
         type='button'
         className='site-nav__item inline-search__toggle'
         aria-label='Search'
