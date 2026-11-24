@@ -21,6 +21,11 @@ const draftStepSchema = new Schema(
       type: [Number],
       default: [],
     },
+    imagePosition: {
+      type: String,
+      enum: ['before', 'after'],
+      default: 'after',
+    },
   },
   { _id: false },
 );

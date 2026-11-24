@@ -34,4 +34,9 @@ const moveSelectedImage = (form, existingCount, from, to) => {
   };
 };
 
-export { moveSelectedImage, removeSelectedImage };
+const clearMissingDraftAttachments = (steps) => steps.map((step) => ({
+  ...step,
+  imageIndexes: [],
+}));
+
+export { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage };

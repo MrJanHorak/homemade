@@ -220,6 +220,7 @@ const cleanDraftSteps = (value) => {
         title,
         content,
         imageIndexes,
+        imagePosition: step?.imagePosition === 'before' ? 'before' : 'after',
       };
     })
     .filter(

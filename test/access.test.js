@@ -4,17 +4,18 @@ import { Duplex } from 'node:stream';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, saveProjectDraft } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { Profile } from '../models/profile.js';
 import { CategorySuggestion } from '../models/categorySuggestion.js';
+import { ProjectDraft } from '../models/projectDraft.js';
 import { router as apiRouter } from '../routes/api.js';
 import { safeReturnTo } from '../lib/return-to.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
 import { getStoredPictureName } from '../frontend/lib/project-images.js';
 import { parseInstruction } from '../frontend/lib/project-instructions.js';
-import { moveSelectedImage, removeSelectedImage } from '../frontend/lib/project-image-selection.js';
+import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } from '../frontend/lib/project-image-selection.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -319,4 +320,22 @@ test('moving and removing new images preserves step attachments to existing and 
   assert.deepEqual(form.buildPictures, ['first', 'second', 'third']);
   assert.equal(moveSelectedImage(form, 2, 0, -1), form);
   assert.equal(removeSelectedImage(form, 2, 3), form);
+});
+
+test('draft recovery clears unavailable attachments and retains image placement', async (t) => {
+  const steps = [{ title: 'Cut', imageIndexes: [0, 2], imagePosition: 'before' }];
+  assert.deepEqual(clearMissingDraftAttachments(steps), [{ title: 'Cut', imageIndexes: [], imagePosition: 'before' }]);
+  assert.deepEqual(steps[0].imageIndexes, [0, 2]);
+  let saved;
+  t.mock.method(ProjectDraft, 'findOneAndUpdate', (filter, update) => {
+    saved = update.$set;
+    return { lean() { return this; }, exec: async () => ({ _id: projectId }) };
+  });
+  const res = { json(body) { this.body = body; return this; }, status(code) { this.statusCode = code; return this; } };
+  await saveProjectDraft({ user: { profile: { _id: owner } }, body: { buildSteps: [...steps, { title: 'Finish' }] } }, res);
+  assert.equal(saved.buildSteps[0].imagePosition, 'before');
+  assert.equal(saved.buildSteps[1].imagePosition, 'after');
+  const draft = new ProjectDraft({ owner, buildSteps: saved.buildSteps });
+  assert.equal(draft.validateSync(), undefined);
+  assert.equal(draft.buildSteps[0].imagePosition, 'before');
 });

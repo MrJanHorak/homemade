@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { moveSelectedImage, removeSelectedImage } from '@/lib/project-image-selection';
+import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } from '@/lib/project-image-selection';
 import fallbackCategories from '@/lib/categories';
 import { API_BASE_URL } from '@/lib/api';
 import { getStoredPictureName } from '@/lib/project-images';
@@ -93,6 +93,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
   const [hasInitializedDraft, setHasInitializedDraft] = useState(false);
   const [cloudDraftUnavailable, setCloudDraftUnavailable] = useState(false);
   const [draftChoice, setDraftChoice] = useState(null);
+  const [missingDraftAttachments, setMissingDraftAttachments] = useState(false);
   const draftQueue = useRef(Promise.resolve());
   const suppressedDraftForm = useRef(null);
   const draftProfileId = session.user?.profile?.id;
@@ -214,12 +215,14 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
   });
 
   const restoreDraft = (draft, source) => {
+    const restoredSteps = normalizeSteps(draft.buildSteps);
+    setMissingDraftAttachments(restoredSteps.some((step) => step.imageIndexes.length > 0));
     setForm((current) => ({
       ...current,
       ...draft,
       otherCategory: Array.isArray(draft.otherCategory) ? draft.otherCategory : [],
       buildPictures: [],
-      buildSteps: normalizeSteps(draft.buildSteps),
+      buildSteps: clearMissingDraftAttachments(restoredSteps),
     }));
     setDraftState(`${source} draft restored. Re-select any images.`);
   };
@@ -1079,6 +1082,9 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       </div>
 
       {justSavedHidden && !form.visible ? <p role='status'>Hidden project saved.</p> : null}
+      {missingDraftAttachments ? (
+        <p className='helper-copy' role='status'>Draft photos could not be restored. Re-select them and attach them to each step again.</p>
+      ) : null}
       {!isEditMode && draftState ? (
         <div className='draft-indicator'>
           <p role='status'>{draftState}</p>
@@ -1311,8 +1317,8 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             </p>
             {!isEditMode ? (
               <p className='helper-copy'>
-                Note: image files are not persisted in cloud drafts and must be
-                re-selected.
+                Image files are not saved in drafts. After restoring a draft,
+                re-select images and attach them to their steps again.
               </p>
             ) : null}
 
