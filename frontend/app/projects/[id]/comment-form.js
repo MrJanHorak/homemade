@@ -3,152 +3,122 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '@/lib/api';
 
 const CommentForm = ({ projectId, ownerId }) => {
   const router = useRouter();
-  const [content, setContent] = useState('');
+  const [viewer, setViewer] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [retry, setRetry] = useState(0);
   const [rating, setRating] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
-  const [isOwner, setIsOwner] = useState(false);
+  const [savedRating, setSavedRating] = useState(null);
+  const [content, setContent] = useState('');
+  const [submitting, setSubmitting] = useState('');
+  const [ratingError, setRatingError] = useState('');
+  const [commentError, setCommentError] = useState('');
+  const [ratingMessage, setRatingMessage] = useState('');
+  const [commentMessage, setCommentMessage] = useState('');
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadSession = async () => {
+    const controller = new AbortController();
+    setViewer(null);
+    setLoadError('');
+    const load = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/session/current`, {
-          credentials: 'include',
+        const sessionResponse = await fetch(`${API_BASE_URL}/api/session/current`, {
+          credentials: 'include', signal: controller.signal,
         });
-
-        if (!response.ok) {
-          if (isMounted) setIsAuthenticated(false);
+        if (!sessionResponse.ok) throw new Error('Unable to load your account.');
+        const session = await sessionResponse.json();
+        if (!session.authenticated) {
+          if (!controller.signal.aborted) setViewer({ authenticated: false });
           return;
         }
-
-        const data = await response.json();
-
-        if (isMounted) {
-          setIsAuthenticated(Boolean(data.authenticated));
-          setIsOwner(
-            Boolean(data.user?.profile?.id && data.user.profile.id === ownerId),
-          );
+        const isOwner = session.user?.profile?.id === ownerId;
+        if (!isOwner) {
+          const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/rating`, {
+            credentials: 'include', signal: controller.signal,
+          });
+          if (!response.ok) throw new Error('Unable to load your rating.');
+          const data = await response.json();
+          if (controller.signal.aborted) return;
+          setSavedRating(data.rating);
+          setRating(data.rating == null ? '' : String(data.rating));
         }
-      } catch {
-        if (isMounted) {
-          setIsAuthenticated(false);
-          setIsOwner(false);
-        }
+        if (!controller.signal.aborted) setViewer({ authenticated: true, isOwner });
+      } catch (error) {
+        if (!controller.signal.aborted) setLoadError(error.message || 'Unable to load feedback.');
       }
     };
+    load();
+    return () => controller.abort();
+  }, [ownerId, projectId, retry]);
 
-    loadSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [ownerId]);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-    setSuccess('');
-
+  const submit = async (kind, payload) => {
+    setSubmitting(kind);
+    if (kind === 'rating') { setRatingError(''); setRatingMessage(''); }
+    else { setCommentError(''); setCommentMessage(''); }
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectId}/comments`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ content, rating }),
-        },
-      );
-
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/comments`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Unable to save comment');
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Unable to save feedback.');
       }
-
-      setContent('');
-      setRating('');
-      setSuccess('Your feedback was saved.');
+      if (kind === 'rating') {
+        setSavedRating(Number(payload.rating));
+        setRatingMessage('Your rating was saved.');
+      } else {
+        setContent('');
+        setCommentMessage('Your comment was posted.');
+      }
       router.refresh();
-    } catch (submitError) {
-      setError(submitError.message);
+    } catch (error) {
+      if (kind === 'rating') setRatingError(error.message || 'Unable to save rating.');
+      else setCommentError(error.message || 'Unable to post comment.');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting('');
     }
   };
 
-  if (isAuthenticated === null) return null;
-
-  if (!isAuthenticated) {
-    const returnTo = encodeURIComponent(`/projects/${projectId}`);
-    return (
-      <Link href={`/auth/sign-in?returnTo=${returnTo}`} className='button button--ghost'>
-        Sign in to rate or comment
-      </Link>
-    );
+  if (loadError) return <p className='form-error' role='alert'>{loadError} <button type='button' onClick={() => setRetry((value) => value + 1)}>Try again</button></p>;
+  if (!viewer) return <p className='helper-copy' role='status'>Loading feedback options...</p>;
+  if (!viewer.authenticated) {
+    return <Link href={`/auth/sign-in?returnTo=${encodeURIComponent(`/projects/${projectId}`)}`} className='button button--ghost'>Sign in to rate or comment</Link>;
   }
 
   return (
-    <form className='comment-form' onSubmit={handleSubmit}>
-      <div className='comment-form__header'>
-        <h3>Rate or comment</h3>
-      </div>
-
-      <label>
-        Rating
-        <select
-          value={rating}
-          onChange={(event) => setRating(event.target.value)}
-          disabled={isOwner}
-        >
-          <option value=''>Choose a rating</option>
-          <option value='1'>1</option>
-          <option value='2'>2</option>
-          <option value='3'>3</option>
-          <option value='4'>4</option>
-          <option value='5'>5</option>
-        </select>
-      </label>
-
-      {isOwner ? (
-        <p className='helper-copy'>
-          You can comment on your project, but you cannot rate it.
-        </p>
-      ) : (
-        <p className='helper-copy'>
-          Updating your rating will replace your previous score.
-        </p>
-      )}
-
-      <label>
-        Comment
-        <textarea
-          rows='5'
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          placeholder='Share what worked, what you would change, or what you learned.'
-        />
-      </label>
-
-      {error ? <p className='form-error' role='alert'>{error}</p> : null}
-      <p className='helper-copy' role='status'>{success}</p>
-
-      <button type='submit' className='button' disabled={isSubmitting}>
-        {isSubmitting ? 'Saving...' : 'Post feedback'}
-      </button>
-    </form>
+    <div>
+      {!viewer.isOwner ? (
+        <form className='comment-form' onSubmit={(event) => { event.preventDefault(); submit('rating', { rating }); }}>
+          <div className='comment-form__header'><h3>Your rating</h3></div>
+          <p className='helper-copy'>{savedRating == null ? 'You have not rated this project yet.' : `Your current rating: ${savedRating} out of 5.`}</p>
+          <label>
+            Rating
+            <select value={rating} onChange={(event) => setRating(event.target.value)} required>
+              <option value=''>Choose a rating</option>
+              {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          {ratingError ? <p className='form-error' role='alert'>{ratingError}</p> : null}
+          <p className='helper-copy' role='status'>{ratingMessage}</p>
+          <button type='submit' className='button' disabled={Boolean(submitting)}>{submitting === 'rating' ? 'Saving...' : savedRating == null ? 'Save rating' : 'Update rating'}</button>
+        </form>
+      ) : <p className='helper-copy'>You can comment on your project, but you cannot rate it.</p>}
+      <form className='comment-form' onSubmit={(event) => { event.preventDefault(); submit('comment', { content }); }}>
+        <div className='comment-form__header'><h3>Post a comment</h3></div>
+        <label>
+          Comment
+          <textarea rows='5' value={content} onChange={(event) => setContent(event.target.value)} required placeholder='Share what worked, what you would change, or what you learned.' />
+        </label>
+        {commentError ? <p className='form-error' role='alert'>{commentError}</p> : null}
+        <p className='helper-copy' role='status'>{commentMessage}</p>
+        <button type='submit' className='button' disabled={Boolean(submitting)}>{submitting === 'comment' ? 'Posting...' : 'Post comment'}</button>
+      </form>
+    </div>
   );
 };
 

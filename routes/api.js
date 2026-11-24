@@ -65,6 +65,7 @@ router.get('/projects/draft', isApiLoggedIn, checkDraftProfile, handle(apiCtrl.g
 router.put('/projects/draft', isApiLoggedIn, checkDraftProfile, handle(apiCtrl.saveProjectDraft));
 router.delete('/projects/draft', isApiLoggedIn, checkDraftProfile, handle(apiCtrl.deleteProjectDraft));
 router.get('/projects/:id', handle(apiCtrl.getProject));
+router.get('/projects/:id/rating', isApiLoggedIn, handle(apiCtrl.getProjectRating));
 router.put('/projects/:id', isApiLoggedIn, upload, validateUploadedImages, handle(apiCtrl.updateProject));
 router.delete('/projects/:id', isApiLoggedIn, handle(apiCtrl.deleteProject));
 router.get(

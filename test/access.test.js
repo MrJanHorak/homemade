@@ -128,6 +128,26 @@ test('JSON routes enforce chat membership, admin role, draft account, and owner-
   assert.equal(del.mock.callCount(), 2);
 });
 
+test('rating lookup requires a viewer, respects visibility, and returns only that viewer’s score', async (t) => {
+  const other = new Types.ObjectId();
+  const project = {
+    _id: projectId, owner, visible: true,
+    ratings: [{ owner: visitor, value: 4 }, { owner: other, value: 2 }],
+    rating: [5],
+  };
+  t.mock.method(Project, 'findById', () => ({ select() { return this; }, exec: async () => project }));
+  const path = `/api/projects/${projectId}/rating`;
+  assert.equal((await request(apiWithViewer(), 'GET', path)).status, 401);
+  const response = await request(apiWithViewer(visitor), 'GET', path);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers['cache-control'], 'private, no-store');
+  assert.match(response.output, /\{"rating":4\}/);
+  assert.match((await request(apiWithViewer(owner), 'GET', path)).output, /\{"rating":null\}/);
+  project.visible = false;
+  assert.equal((await request(apiWithViewer(visitor), 'GET', path)).status, 404);
+  assert.equal((await request(apiWithViewer(owner), 'GET', path)).status, 200);
+});
+
 test('chat creation requires another existing profile and reuses an existing conversation', async (t) => {
   const exists = t.mock.method(Profile, 'exists', async ({ _id }) => _id === visitor.toString());
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: [] };

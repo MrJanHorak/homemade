@@ -1004,6 +1004,19 @@ const addProjectComment = async (req, res) => {
   });
 };
 
+const getProjectRating = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const project = await Project.findById(req.params.id).select('visible owner ratings').exec();
+  if (!canViewProject(project, req.user.profile._id)) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+  const entry = getStructuredRatings(project).find((item) =>
+    item.owner?.equals(req.user.profile._id),
+  );
+  res.json({ rating: entry?.value ?? null });
+};
+
 const getProjectSaveStatus = async (req, res) => {
   const project = await Project.findById(req.params.id).select('visible owner').exec();
 
@@ -1555,6 +1568,7 @@ export {
   getProfiles,
   getProjectDraft,
   getProject,
+  getProjectRating,
   getProjects,
   getSession,
   healthcheck,
