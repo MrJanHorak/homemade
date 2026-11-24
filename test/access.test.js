@@ -8,6 +8,7 @@ import { getProject, getProjectSaveStatus, addProjectComment, saveProject, creat
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { Profile } from '../models/profile.js';
+import { CategorySuggestion } from '../models/categorySuggestion.js';
 import { router as apiRouter } from '../routes/api.js';
 import { safeReturnTo } from '../lib/return-to.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
@@ -222,6 +223,34 @@ test('maker filters use bounded literal values and count only visible projects f
   assert.match(response.output, /"projectCount":1/);
   await request(apiWithViewer(), 'GET', `/api/profiles?name=${'x'.repeat(100)}`);
   assert.equal(findProfiles.mock.calls[1].arguments[0].name.$regex.length, 80);
+});
+
+test('moderation pagination filters and sorts across the queue and remains admin-only', async (t) => {
+  const calls = {};
+  t.mock.method(CategorySuggestion, 'find', (filter) => {
+    calls.filter = filter;
+    return {
+      sort(value) { calls.sort = value; return this; },
+      skip(value) { calls.skip = value; return this; },
+      limit(value) { calls.limit = value; return this; },
+      exec: async () => [{ _id: projectId, label: 'A.*', status: 'approved' }],
+    };
+  });
+  t.mock.method(CategorySuggestion, 'countDocuments', (filter) => {
+    calls.countFilter = filter;
+    return { exec: async () => 76 };
+  });
+  const path = '/api/admin/category-suggestions?status=approved&promoted=true&page=2&limit=25&query=A.%2A&sort=label&direction=asc';
+  assert.equal((await request(apiWithViewer(visitor), 'GET', path)).status, 403);
+  const response = await request(apiWithViewer(owner, 'admin'), 'GET', path);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers['cache-control'], 'private, no-store');
+  assert.deepEqual(calls.filter, { status: 'approved', promoted: true, label: { $regex: 'A\\.\\*', $options: 'i' } });
+  assert.deepEqual(calls.countFilter, calls.filter);
+  assert.deepEqual(calls.sort, { normalizedLabel: 1, _id: 1 });
+  assert.equal(calls.skip, 25);
+  assert.equal(calls.limit, 25);
+  assert.match(response.output, /"total":76,"totalPages":4/);
 });
 
 test('chat creation requires another existing profile and reuses an existing conversation', async (t) => {

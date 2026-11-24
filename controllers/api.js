@@ -662,7 +662,8 @@ const deleteProjectDraft = async (req, res) => {
 };
 
 const getCategorySuggestions = async (req, res) => {
-  const requestedStatus = req.query.status?.trim();
+  res.set('Cache-Control', 'private, no-store');
+  const requestedStatus = typeof req.query.status === 'string' ? req.query.status.trim() : '';
   const promotedOnly = req.query.promoted === 'true';
   const statusFilter =
     requestedStatus === 'approved' ||
@@ -675,6 +676,30 @@ const getCategorySuggestions = async (req, res) => {
 
   if (promotedOnly) {
     filter.promoted = true;
+  }
+
+  // Opt in to paginated, server-filtered results; retain the existing response for older clients.
+  if (req.query.page !== undefined || req.query.limit !== undefined) {
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const pagination = normalizePagination(requestedLimit > 0 ? requestedLimit : 25, req.query.page);
+    const search = typeof req.query.query === 'string' ? req.query.query.trim().slice(0, 80) : '';
+    if (search) filter.label = { $regex: escapeRegExp(search), $options: 'i' };
+    const sortFields = { usage: 'usageCount', lastUsed: 'lastSuggestedAt', label: 'normalizedLabel' };
+    const field = Object.hasOwn(sortFields, req.query.sort) ? sortFields[req.query.sort] : 'usageCount';
+    const direction = req.query.direction === 'asc' ? 1 : -1;
+    const sort = { [field]: direction, _id: 1 };
+    const [suggestions, total] = await Promise.all([
+      CategorySuggestion.find(filter).sort(sort).skip(pagination.skip).limit(pagination.limit).exec(),
+      CategorySuggestion.countDocuments(filter).exec(),
+    ]);
+    res.json({
+      suggestions: suggestions.map(serializeCategorySuggestion),
+      pagination: {
+        page: pagination.page, limit: pagination.limit, total,
+        totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+      },
+    });
+    return;
   }
 
   const suggestions = await CategorySuggestion.find(filter)

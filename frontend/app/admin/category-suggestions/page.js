@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 
 const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'promoted'];
@@ -29,50 +29,22 @@ const CategoryModerationPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
+  const requestVersion = useRef(0);
 
   const endpoint = useMemo(() => {
-    if (statusFilter === 'promoted') {
-      return `${API_BASE_URL}/api/admin/category-suggestions?status=approved&promoted=true`;
-    }
-
-    return `${API_BASE_URL}/api/admin/category-suggestions?status=${statusFilter}`;
-  }, [statusFilter]);
-
-  const filteredSuggestions = useMemo(() => {
-    const needle = searchQuery.trim().toLowerCase();
-
-    if (!needle) {
-      return suggestions;
-    }
-
-    return suggestions.filter((suggestion) =>
-      suggestion.label.toLowerCase().includes(needle),
-    );
-  }, [searchQuery, suggestions]);
-
-  const sortedSuggestions = useMemo(() => {
-    const next = [...filteredSuggestions];
-
-    next.sort((a, b) => {
-      if (sortBy === 'label') {
-        const compare = a.label.localeCompare(b.label);
-        return sortDirection === 'asc' ? compare : -compare;
-      }
-
-      if (sortBy === 'lastUsed') {
-        const aTime = new Date(a.lastSuggestedAt || 0).getTime();
-        const bTime = new Date(b.lastSuggestedAt || 0).getTime();
-        return sortDirection === 'asc' ? aTime - bTime : bTime - aTime;
-      }
-
-      const usageCompare = (a.usageCount || 0) - (b.usageCount || 0);
-      return sortDirection === 'asc' ? usageCompare : -usageCompare;
+    const params = new URLSearchParams({
+      status: statusFilter === 'promoted' ? 'approved' : statusFilter,
+      page: String(page), limit: '25', sort: sortBy, direction: sortDirection,
     });
-
-    return next;
-  }, [filteredSuggestions, sortBy, sortDirection]);
+    if (statusFilter === 'promoted') params.set('promoted', 'true');
+    if (searchQuery.trim()) params.set('query', searchQuery.trim());
+    return `${API_BASE_URL}/api/admin/category-suggestions?${params}`;
+  }, [statusFilter, searchQuery, sortBy, sortDirection, page]);
 
   const loadSuggestions = async () => {
+    const version = ++requestVersion.current;
     setIsLoading(true);
     setError('');
 
@@ -80,6 +52,7 @@ const CategoryModerationPage = () => {
       const response = await fetch(endpoint, {
         credentials: 'include',
       });
+      if (version !== requestVersion.current) return;
 
       if (response.status === 401) {
         setError('Please sign in first.');
@@ -98,17 +71,21 @@ const CategoryModerationPage = () => {
       }
 
       const data = await response.json();
+      if (version !== requestVersion.current) return;
       setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+      setPagination(data.pagination || null);
     } catch (loadError) {
+      if (version !== requestVersion.current) return;
       setError(loadError.message || 'Could not load category suggestions.');
       setSuggestions([]);
     } finally {
-      setIsLoading(false);
+      if (version === requestVersion.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     loadSuggestions();
+    return () => { requestVersion.current += 1; };
   }, [endpoint]);
 
   const updateSuggestionStatus = async (id, nextStatus) => {
@@ -202,17 +179,21 @@ const CategoryModerationPage = () => {
           unsafe or duplicate labels.
         </p>
       </div>
+      <p className='helper-copy'>Approval marks a suggestion as reviewed. Promote publishes it as an available category and also approves it. Rejecting or resetting a promoted category removes it from the available list; demoting keeps it approved.</p>
 
       <div className='moderation-toolbar'>
         <button
           type='button'
           className='button button--ghost moderation-toolbar__mobile-toggle'
+          aria-expanded={mobileFiltersOpen}
+          aria-controls='moderation-filters'
           onClick={() => setMobileFiltersOpen((current) => !current)}
         >
           {mobileFiltersOpen ? 'Hide filters' : 'Show filters'}
         </button>
 
         <div
+          id='moderation-filters'
           className={`moderation-toolbar__controls ${
             mobileFiltersOpen ? 'moderation-toolbar__controls--open' : ''
           }`}
@@ -221,7 +202,8 @@ const CategoryModerationPage = () => {
             Status
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              disabled={Boolean(busyId)}
+              onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
@@ -236,8 +218,10 @@ const CategoryModerationPage = () => {
             <input
               type='search'
               value={searchQuery}
+              disabled={Boolean(busyId)}
               placeholder='Filter category labels'
-              onChange={(event) => setSearchQuery(event.target.value)}
+              maxLength={80}
+              onChange={(event) => { setSearchQuery(event.target.value); setPage(1); }}
             />
           </label>
 
@@ -245,7 +229,8 @@ const CategoryModerationPage = () => {
             Sort by
             <select
               value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
+              disabled={Boolean(busyId)}
+              onChange={(event) => { setSortBy(event.target.value); setPage(1); }}
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -258,11 +243,13 @@ const CategoryModerationPage = () => {
           <button
             type='button'
             className='button button--ghost moderation-toolbar__direction'
-            onClick={() =>
+            disabled={Boolean(busyId)}
+            onClick={() => {
               setSortDirection((current) =>
                 current === 'asc' ? 'desc' : 'asc',
-              )
-            }
+              );
+              setPage(1);
+            }}
           >
             {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
           </button>
@@ -273,6 +260,7 @@ const CategoryModerationPage = () => {
             type='button'
             className='button button--ghost'
             onClick={loadSuggestions}
+            disabled={Boolean(busyId)}
           >
             Refresh
           </button>
@@ -282,15 +270,15 @@ const CategoryModerationPage = () => {
         </div>
       </div>
 
-      {error ? <p className='form-error'>{error}</p> : null}
+      {error ? <p className='form-error' role='alert'>{error}</p> : null}
 
       {isLoading ? (
-        <p className='helper-copy'>Loading suggestions...</p>
-      ) : sortedSuggestions.length === 0 ? (
-        <p className='helper-copy'>No suggestions found for this status.</p>
+        <p className='helper-copy' role='status'>Loading suggestions...</p>
+      ) : error ? null : suggestions.length === 0 ? (
+        <p className='helper-copy'>No suggestions found on this page.</p>
       ) : (
         <div className='moderation-list'>
-          {sortedSuggestions.map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <article key={suggestion.id} className='moderation-card'>
               <div className='moderation-card__header'>
                 <h2>{suggestion.label}</h2>
@@ -331,7 +319,7 @@ const CategoryModerationPage = () => {
                     updateSuggestionStatus(suggestion.id, 'approved')
                   }
                   disabled={
-                    busyId === suggestion.id || suggestion.status === 'approved'
+                    Boolean(busyId) || suggestion.status === 'approved'
                   }
                 >
                   Approve
@@ -343,7 +331,7 @@ const CategoryModerationPage = () => {
                     updateSuggestionStatus(suggestion.id, 'rejected')
                   }
                   disabled={
-                    busyId === suggestion.id || suggestion.status === 'rejected'
+                    Boolean(busyId) || suggestion.status === 'rejected'
                   }
                 >
                   Reject
@@ -355,7 +343,7 @@ const CategoryModerationPage = () => {
                     updateSuggestionStatus(suggestion.id, 'pending')
                   }
                   disabled={
-                    busyId === suggestion.id || suggestion.status === 'pending'
+                    Boolean(busyId) || suggestion.status === 'pending'
                   }
                 >
                   Reset pending
@@ -364,7 +352,7 @@ const CategoryModerationPage = () => {
                   type='button'
                   className='button'
                   onClick={() => promoteSuggestion(suggestion.id)}
-                  disabled={busyId === suggestion.id || suggestion.promoted}
+                  disabled={Boolean(busyId) || suggestion.promoted}
                 >
                   Promote
                 </button>
@@ -372,7 +360,7 @@ const CategoryModerationPage = () => {
                   type='button'
                   className='button button--ghost'
                   onClick={() => demoteSuggestion(suggestion.id)}
-                  disabled={busyId === suggestion.id || !suggestion.promoted}
+                  disabled={Boolean(busyId) || !suggestion.promoted}
                 >
                   Demote
                 </button>
@@ -381,6 +369,13 @@ const CategoryModerationPage = () => {
           ))}
         </div>
       )}
+      {!isLoading && !error && pagination ? (
+        <div className='projects-pagination'>
+          <button type='button' className='button button--ghost button--compact' disabled={page <= 1 || Boolean(busyId)} onClick={() => setPage((value) => value - 1)}>Previous</button>
+          <p className='projects-pagination__status'>Page {pagination.page} of {pagination.totalPages} · {pagination.total} suggestions</p>
+          <button type='button' className='button button--ghost button--compact' disabled={page >= pagination.totalPages || Boolean(busyId)} onClick={() => setPage((value) => value + 1)}>Next</button>
+        </div>
+      ) : null}
     </section>
   );
 };
