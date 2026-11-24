@@ -1228,10 +1228,15 @@ const getSavedProjects = async (req, res) => {
 };
 
 const getProfiles = async (req, res) => {
-  const profiles = await Profile.find({}).sort({ name: 1 }).exec();
-  const visibleProjects = await Project.find({ visible: true })
+  const name = typeof req.query.name === 'string' ? req.query.name.trim().slice(0, 80) : '';
+  const skill = typeof req.query.skill === 'string' ? req.query.skill.trim().slice(0, 80) : '';
+  const filter = {};
+  if (name) filter.name = { $regex: escapeRegExp(name), $options: 'i' };
+  if (skill) filter.skills = { $regex: `^${escapeRegExp(skill)}$`, $options: 'i' };
+  const profiles = await Profile.find(filter).sort({ name: 1 }).exec();
+  const visibleProjects = profiles.length ? await Project.find({ visible: true, owner: { $in: profiles.map((profile) => profile._id) } })
     .select('owner')
-    .exec();
+    .exec() : [];
   const projectCounts = visibleProjects.reduce((counts, project) => {
     const ownerId = project.owner?.toString();
     if (!ownerId) {

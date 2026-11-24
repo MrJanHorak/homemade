@@ -172,6 +172,24 @@ test('comment deletion requires visibility and author or admin permissions', asy
   assert.equal((await request(apiWithViewer(owner), 'DELETE', `/api/projects/${projectId}/comments/invalid`)).status, 404);
 });
 
+test('maker filters use bounded literal values and count only visible projects for matches', async (t) => {
+  const profile = { _id: visitor, name: 'A. Maker', skills: ['Woodworking'] };
+  const findProfiles = t.mock.method(Profile, 'find', () => ({ sort() { return this; }, exec: async () => [profile] }));
+  const findProjects = t.mock.method(Project, 'find', () => ({ select() { return this; }, exec: async () => [{ owner: visitor }] }));
+  const response = await request(apiWithViewer(), 'GET', '/api/profiles?name=A.%2A&skill=Woodworking');
+  assert.equal(response.status, 200);
+  assert.deepEqual(findProfiles.mock.calls[0].arguments[0], {
+    name: { $regex: 'A\\.\\*', $options: 'i' },
+    skills: { $regex: '^Woodworking$', $options: 'i' },
+  });
+  const projectFilter = findProjects.mock.calls[0].arguments[0];
+  assert.equal(projectFilter.visible, true);
+  assert.deepEqual(projectFilter.owner.$in, [visitor]);
+  assert.match(response.output, /"projectCount":1/);
+  await request(apiWithViewer(), 'GET', `/api/profiles?name=${'x'.repeat(100)}`);
+  assert.equal(findProfiles.mock.calls[1].arguments[0].name.$regex.length, 80);
+});
+
 test('chat creation requires another existing profile and reuses an existing conversation', async (t) => {
   const exists = t.mock.method(Profile, 'exists', async ({ _id }) => _id === visitor.toString());
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: [] };
