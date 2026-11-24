@@ -90,6 +90,8 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
   const [error, setError] = useState('');
   const [draftState, setDraftState] = useState('');
   const [hasInitializedDraft, setHasInitializedDraft] = useState(false);
+  const [cloudDraftUnavailable, setCloudDraftUnavailable] = useState(false);
+  const [draftChoice, setDraftChoice] = useState(null);
   const draftQueue = useRef(Promise.resolve());
   const suppressedDraftForm = useRef(null);
   const draftProfileId = session.user?.profile?.id;
@@ -205,6 +207,17 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
     buildSteps: normalizeSteps(sourceForm.buildSteps),
     buildPictures: [],
   });
+
+  const restoreDraft = (draft, source) => {
+    setForm((current) => ({
+      ...current,
+      ...draft,
+      otherCategory: Array.isArray(draft.otherCategory) ? draft.otherCategory : [],
+      buildPictures: [],
+      buildSteps: normalizeSteps(draft.buildSteps),
+    }));
+    setDraftState(`${source} draft restored. Re-select any images.`);
+  };
 
   const saveDraftToApi = async (draftPayload) => {
     const response = await fetch(`${API_BASE_URL}/api/projects/draft`, {
@@ -440,24 +453,21 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       }
 
       if (!active) return;
+      setCloudDraftUnavailable(loadFailed);
+      if (!loadFailed && localDraft?.draft && cloudDraft?.draft) {
+        setDraftChoice({ local: localDraft, cloud: cloudDraft });
+        return;
+      }
       const useLocal = localDraft?.draft && (
         !cloudDraft?.draft || localDraft.savedAt > Date.parse(cloudDraft.updatedAt)
       );
       const draft = useLocal ? localDraft.draft : cloudDraft?.draft;
 
       if (draft) {
-        setForm((current) => ({
-          ...current,
-          ...draft,
-          otherCategory: Array.isArray(draft.otherCategory) ? draft.otherCategory : [],
-          buildPictures: [],
-          buildSteps: normalizeSteps(draft.buildSteps),
-        }));
-        setDraftState(useLocal
-          ? 'Restored this account’s local draft. Re-select any images.'
-          : 'Cloud draft restored. Re-select any images.');
+        restoreDraft(draft, useLocal ? 'Local' : 'Cloud');
+        if (loadFailed) setDraftState('Cloud draft unavailable. Local draft restored; edits will stay on this device. Reload when online to check the cloud draft. Re-select any images.');
       } else if (loadFailed) {
-        setDraftState('Could not load the cloud draft.');
+        setDraftState('Cloud draft unavailable. Edits will stay on this device. Reload when online to check the cloud draft.');
       }
 
       setHasInitializedDraft(true);
@@ -477,16 +487,26 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
 
         const draft = buildDraftPayload(form);
         const savedAt = Date.now();
+        let savedLocally = false;
+        try {
+          window.localStorage.setItem(localDraftKey, JSON.stringify({ draft, savedAt }));
+          savedLocally = true;
+        } catch {
+          // A cloud save can still succeed when local storage is unavailable.
+        }
+        if (cloudDraftUnavailable) {
+          setDraftState(savedLocally
+            ? 'Cloud draft unavailable. Draft saved on this device. Reload when online to check the cloud draft.'
+            : 'Cloud draft unavailable and this device could not save the draft. Keep this page open and copy your work.');
+          return;
+        }
         try {
           await saveDraftToApi(draft);
         } catch {
           if (!active || suppressedDraftForm.current === form) return;
-          try {
-            window.localStorage.setItem(localDraftKey, JSON.stringify({ draft, savedAt }));
-            setDraftState('Cloud save failed. Draft saved on this device.');
-          } catch {
-            setDraftState('Could not save draft to cloud or this device.');
-          }
+          setDraftState(savedLocally
+            ? 'Cloud save failed. Draft saved on this device.'
+            : 'Could not save draft to cloud or this device.');
           return;
         }
 
@@ -504,7 +524,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       active = false;
       clearTimeout(timeout);
     };
-  }, [form, isEditMode, hasInitializedDraft, localDraftKey]);
+  }, [form, isEditMode, hasInitializedDraft, localDraftKey, cloudDraftUnavailable]);
 
   const updateField = (field, value) => {
     setForm((current) => ({
@@ -902,6 +922,31 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       setIsSubmitting(false);
     }
   };
+
+  if (draftChoice) {
+    const draftTime = (value) => {
+      const time = value ? new Date(value) : null;
+      return time && Number.isFinite(time.getTime()) ? time.toLocaleString() : 'Unknown';
+    };
+    const chooseDraft = (source) => {
+      restoreDraft(draftChoice[source].draft, source === 'local' ? 'Local' : 'Cloud');
+      setDraftChoice(null);
+      setHasInitializedDraft(true);
+    };
+    return (
+      <section className='section-panel section-panel--tight'>
+        <p className='eyebrow'>Draft recovery</p>
+        <h1>Choose a draft to continue</h1>
+        <p>There is a draft on this device and another in your account. Choosing one will replace the saved draft with that version. Images must be re-selected.</p>
+        <p>Device draft: {draftChoice.local.draft.title || 'Untitled'} — saved {draftTime(draftChoice.local.savedAt)}</p>
+        <p>Cloud draft: {draftChoice.cloud.draft.title || 'Untitled'} — saved {draftTime(draftChoice.cloud.updatedAt)}</p>
+        <div className='page-actions'>
+          <button type='button' className='button' onClick={() => chooseDraft('local')}>Use device draft</button>
+          <button type='button' className='button button--ghost' onClick={() => chooseDraft('cloud')}>Use cloud draft</button>
+        </div>
+      </section>
+    );
+  }
 
   if (isLoading || (!isEditMode && localDraftKey && !hasInitializedDraft)) {
     return (
