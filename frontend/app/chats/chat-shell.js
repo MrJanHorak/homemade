@@ -55,6 +55,10 @@ const ChatShell = ({ chatId }) => {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [reportingMessageId, setReportingMessageId] = useState('');
+  const [reportReason, setReportReason] = useState('harassment');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportStatus, setReportStatus] = useState('');
   const composerRef = useRef(null);
   const requestVersion = useRef(0);
   const inboxPageRef = useRef(1);
@@ -350,6 +354,26 @@ const ChatShell = ({ chatId }) => {
     }
   };
 
+  const handleReportMessage = async (event, messageId) => {
+    event.preventDefault();
+    setReportStatus('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chats/${chatId}/reports`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, reason: reportReason, details: reportDetails }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Unable to submit report.');
+      setReportStatus('Report sent. A moderator can review the selected message.');
+      setReportingMessageId('');
+      setReportDetails('');
+    } catch (reportError) {
+      setReportStatus(reportError.message || 'Unable to submit report.');
+    }
+  };
+
   if (isLoading) {
     return (
       <section className='section-panel section-panel--tight'>
@@ -519,6 +543,26 @@ const ChatShell = ({ chatId }) => {
                                 (edited)
                               </span>
                             ) : null}
+                            {reportingMessageId === entry.id ? (
+                              <form onSubmit={(event) => handleReportMessage(event, entry.id)}>
+                                <label>
+                                  Reason
+                                  <select value={reportReason} onChange={(event) => setReportReason(event.target.value)}>
+                                    <option value='harassment'>Harassment</option>
+                                    <option value='spam'>Spam</option>
+                                    <option value='unsafe'>Unsafe content</option>
+                                    <option value='other'>Other</option>
+                                  </select>
+                                </label>
+                                <label>
+                                  Additional details (optional)
+                                  <textarea value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} maxLength={500} rows={3} />
+                                </label>
+                                <p>Submitting shares this message with HomeMade moderators for review.</p>
+                                <button type='submit' className='button button--small'>Send report</button>
+                                <button type='button' className='button button--ghost button--small' onClick={() => setReportingMessageId('')}>Cancel</button>
+                              </form>
+                            ) : null}
                             {isMine ? (
                               <button
                                 className='chat-bubble__edit-btn'
@@ -544,7 +588,16 @@ const ChatShell = ({ chatId }) => {
                                 </svg>
                                 Edit
                               </button>
-                            ) : null}
+                            ) : (
+                              <button
+                                className='chat-bubble__edit-btn'
+                                type='button'
+                                onClick={() => { setReportingMessageId(entry.id); setReportStatus(''); }}
+                                aria-label='Report message'
+                              >
+                                Report
+                              </button>
+                            )}
                           </>
                         )}
 
@@ -556,6 +609,7 @@ const ChatShell = ({ chatId }) => {
                   <p className='empty-copy'>No messages yet. Say hello.</p>
                 )}
               </div>
+              {reportStatus ? <p role='status'>{reportStatus}</p> : null}
 
               <form
                 className='chat-thread__composer'

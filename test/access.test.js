@@ -5,9 +5,10 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
+import { ChatReport } from '../models/chatReport.js';
 import { Profile } from '../models/profile.js';
 import { CategorySuggestion } from '../models/categorySuggestion.js';
 import { ProjectDraft } from '../models/projectDraft.js';
@@ -301,6 +302,33 @@ test('older chat message pages enforce membership and use a bounded cursor query
   assert.equal(page.headers['cache-control'], 'private, no-store');
   assert.match(page.output, /Earlier/);
   assert.deepEqual(aggregate.mock.calls[0].arguments[0][2], { $match: { 'messages._id': { $lt: new Types.ObjectId(visitor) } } });
+});
+
+test('chat reports can only target another participant message and moderators alone can read the queue', async (t) => {
+  const thread = new Chat({ _id: projectId, user1: owner, user2: visitor, messages: [{ user: visitor, message: 'Reported message' }] });
+  t.mock.method(Chat, 'findById', () => ({ exec: async () => thread }));
+  const create = t.mock.method(ChatReport, 'create', async (record) => ({ _id: projectId, ...record }));
+  const invoke = async (viewer, body) => {
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(payload) { this.body = payload; return this; } };
+    await reportChatMessage({ params: { chatId: projectId.toString() }, user: { profile: { _id: viewer } }, body }, res);
+    return res;
+  };
+
+  assert.equal((await invoke(new Types.ObjectId(), { messageId: thread.messages[0]._id.toString(), reason: 'spam' })).statusCode, 403);
+  assert.equal((await invoke(owner, { messageId: thread.messages[0]._id.toString(), reason: 'invalid' })).statusCode, 400);
+  assert.equal((await invoke(visitor, { messageId: thread.messages[0]._id.toString(), reason: 'spam' })).statusCode, 400);
+  const accepted = await invoke(owner, { messageId: thread.messages[0]._id.toString(), reason: 'spam', details: 'Repeated unwanted messages' });
+  assert.equal(accepted.statusCode, 201);
+  assert.equal(create.mock.calls[0].arguments[0].messageSnapshot, 'Reported message');
+  assert.equal(create.mock.calls[0].arguments[0].reportedProfile.toString(), visitor.toString());
+
+  const find = t.mock.method(ChatReport, 'find', () => ({ populate() { return this; }, sort() { return this; }, skip() { return this; }, limit() { return this; }, exec: async () => [] }));
+  t.mock.method(ChatReport, 'countDocuments', () => ({ exec: async () => 0 }));
+  assert.equal((await request(apiWithViewer(owner), 'GET', '/api/admin/chat-reports')).status, 403);
+  const adminQueue = await request(apiWithViewer(owner, 'admin'), 'GET', '/api/admin/chat-reports');
+  assert.equal(adminQueue.status, 200);
+  assert.equal(adminQueue.headers['cache-control'], 'private, no-store');
+  assert.equal(find.mock.callCount(), 1);
 });
 
 test('chat writes reject malformed and oversized text without weakening participant or author checks', async (t) => {

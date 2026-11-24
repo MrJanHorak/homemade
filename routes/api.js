@@ -44,6 +44,7 @@ const validateId = (req, res, next, id) => {
 
 router.param('id', validateId);
 router.param('chatId', validateId);
+router.param('reportId', validateId);
 router.param('messageId', validateId);
 router.param('commentId', validateId);
 
@@ -114,6 +115,8 @@ router.get(
   isApiAdmin,
   handle(apiCtrl.getCategorySuggestions),
 );
+router.get('/admin/chat-reports', isApiAdmin, handle(apiCtrl.getChatReports));
+router.put('/admin/chat-reports/:reportId', isApiAdmin, handle(apiCtrl.updateChatReport));
 router.put(
   '/admin/category-suggestions/:id',
   isApiAdmin,
@@ -135,6 +138,7 @@ router.get('/chats/:chatId', isApiLoggedIn, handle(apiCtrl.getChat));
 router.get('/chats/:chatId/messages', isApiLoggedIn, handle(apiCtrl.getOlderChatMessages));
 router.post('/chats', isApiLoggedIn, handle(apiCtrl.createChat));
 router.post('/chats/:chatId/hide', isApiLoggedIn, handle(apiCtrl.hideChat));
+router.post('/chats/:chatId/reports', isApiLoggedIn, handle(apiCtrl.reportChatMessage));
 router.post('/chats/:chatId/messages', isApiLoggedIn, handle(apiCtrl.addChatMessage));
 router.put(
   '/chats/:chatId/messages/:messageId',

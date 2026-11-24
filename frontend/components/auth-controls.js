@@ -102,12 +102,10 @@ const AuthControls = () => {
           Chats
         </Link>
         {session.user.profile.role === 'admin' ? (
-          <Link
-            href='/admin/category-suggestions'
-            className='account-menu__link'
-          >
-            Category moderation
-          </Link>
+          <>
+            <Link href='/admin/category-suggestions' className='account-menu__link'>Category moderation</Link>
+            <Link href='/admin/chat-reports' className='account-menu__link'>Chat reports</Link>
+          </>
         ) : null}
         <Link href='/projects/new' className='account-menu__link'>
           Add project

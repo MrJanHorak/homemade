@@ -1,5 +1,6 @@
 import { Chat } from '../models/chat.js';
 import { Types } from 'mongoose';
+import { ChatReport } from '../models/chatReport.js';
 import passport from 'passport';
 import sanitizeHtml from 'sanitize-html';
 import { sanitizeRichText } from '../lib/rich-text.js';
@@ -1532,6 +1533,109 @@ const getOlderChatMessages = async (req, res) => {
   res.json({ messages, hasMoreOlder, olderCursor: messages[0]?.id || null });
 };
 
+const reportChatMessage = async (req, res) => {
+  const chat = await Chat.findById(req.params.chatId).exec();
+  if (!chat) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+  const reporterId = req.user.profile._id;
+  if (!chat.user1?.equals(reporterId) && !chat.user2?.equals(reporterId)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+  if ((chat.hiddenBy || []).some((id) => id.equals(reporterId))) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
+  const message = chat.messages.id(req.body?.messageId);
+  if (!message) {
+    res.status(404).json({ error: 'Message not found' });
+    return;
+  }
+  if (!message.user) {
+    res.status(400).json({ error: 'This message cannot be reported' });
+    return;
+  }
+  if (message.user?.equals(reporterId)) {
+    res.status(400).json({ error: 'You can only report another maker’s message' });
+    return;
+  }
+  const reasons = new Set(['harassment', 'spam', 'unsafe', 'other']);
+  if (!reasons.has(req.body?.reason)) {
+    res.status(400).json({ error: 'Choose a valid report reason' });
+    return;
+  }
+  if (req.body?.details !== undefined && typeof req.body.details !== 'string') {
+    res.status(400).json({ error: 'Additional details must be text' });
+    return;
+  }
+  const details = typeof req.body?.details === 'string' ? req.body.details.trim() : '';
+  if (details.length > 500) {
+    res.status(400).json({ error: 'Additional details must be 500 characters or fewer' });
+    return;
+  }
+  try {
+    const report = await ChatReport.create({
+      chat: chat._id,
+      message: message._id,
+      reporter: reporterId,
+      reportedProfile: message.user,
+      reason: req.body.reason,
+      details,
+      messageSnapshot: String(message.message || '').slice(0, 4000),
+    });
+    res.status(201).json({ reportId: report._id.toString() });
+  } catch (error) {
+    if (error?.code === 11000) {
+      res.status(409).json({ error: 'You have already reported this message' });
+      return;
+    }
+    throw error;
+  }
+};
+
+const getChatReports = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const pagination = normalizePagination(req.query.limit || '25', req.query.page);
+  pagination.page = Math.min(10000, pagination.page);
+  pagination.skip = (pagination.page - 1) * pagination.limit;
+  const [reports, total] = await Promise.all([
+    ChatReport.find().populate('reporter', 'name').populate('reportedProfile', 'name')
+      .sort({ createdAt: -1, _id: -1 }).skip(pagination.skip).limit(pagination.limit).exec(),
+    ChatReport.countDocuments().exec(),
+  ]);
+  res.json({
+    reports: reports.map((report) => ({
+      id: report._id.toString(), chatId: report.chat.toString(), messageId: report.message.toString(),
+      reporter: report.reporter ? { id: report.reporter._id.toString(), name: report.reporter.name } : null,
+      reportedProfile: report.reportedProfile ? { id: report.reportedProfile._id.toString(), name: report.reportedProfile.name } : null,
+      reason: report.reason, details: report.details, message: report.messageSnapshot,
+      status: report.status, createdAt: report.createdAt, reviewedAt: report.reviewedAt || null,
+    })),
+    pagination: { page: pagination.page, limit: pagination.limit, total, totalPages: Math.max(1, Math.ceil(total / pagination.limit)) },
+  });
+};
+
+const updateChatReport = async (req, res) => {
+  const status = req.body?.status;
+  if (!['reviewed', 'dismissed'].includes(status)) {
+    res.status(400).json({ error: 'status must be reviewed or dismissed' });
+    return;
+  }
+  const report = await ChatReport.findById(req.params.reportId).exec();
+  if (!report) {
+    res.status(404).json({ error: 'Report not found' });
+    return;
+  }
+  report.status = status;
+  report.reviewedBy = req.user.profile._id;
+  report.reviewedAt = new Date();
+  await report.save();
+  res.json({ id: report._id.toString(), status: report.status, reviewedAt: report.reviewedAt });
+};
+
 const createChat = async (req, res) => {
   const user1Id = req.user.profile._id;
   const user2Id = req.body.user2;
@@ -1724,6 +1828,9 @@ export {
   saveProject,
   unsaveProject,
   addChatMessage,
+  reportChatMessage,
+  getChatReports,
+  updateChatReport,
   createChat,
   editChatMessage,
   hideChat,
