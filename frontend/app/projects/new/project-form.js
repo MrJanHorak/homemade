@@ -1075,18 +1075,22 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       <div className='project-form__stack'>
         {form[field].map((entry, index) => (
           <div key={`${field}-${index}`} className='project-form__inline'>
-            <input
-              type='text'
-              value={entry}
-              placeholder={placeholder}
-              onChange={(event) =>
-                updateListField(field, index, event.target.value)
-              }
-            />
+            <label>
+              {label} {index + 1}
+              <input
+                type='text'
+                value={entry}
+                placeholder={placeholder}
+                onChange={(event) =>
+                  updateListField(field, index, event.target.value)
+                }
+              />
+            </label>
             <button
               type='button'
               className='button button--ghost'
               onClick={() => removeListField(field, index)}
+              aria-label={`Remove ${label.toLowerCase()} ${index + 1}`}
             >
               Remove
             </button>
@@ -1098,7 +1102,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
         className='button button--ghost'
         onClick={() => addListField(field)}
       >
-        Add another
+        Add another {label.toLowerCase()}
       </button>
     </div>
   );
@@ -1180,6 +1184,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
               type='button'
               className='button button--ghost category-picker__toggle'
               onClick={() => setCategoryMenuOpen((open) => !open)}
+              aria-expanded={categoryMenuOpen}
             >
               {form.categories.length
                 ? `${form.categories.length} standard selected`
@@ -1188,7 +1193,11 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
 
             {categoryMenuOpen ? (
               <div className='category-picker__menu'>
+                <label className='visually-hidden' htmlFor='project-category-search'>
+                  Search categories
+                </label>
                 <input
+                  id='project-category-search'
                   type='search'
                   placeholder='Search categories'
                   value={categoryQuery}
@@ -1237,6 +1246,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                   type='button'
                   className='project-form__chip project-form__chip--selected'
                   onClick={() => toggleCategory(value)}
+                  aria-label={`Remove category ${categoryValueToLabel.get(value) || value}`}
                 >
                   {categoryValueToLabel.get(value) || value} x
                 </button>
@@ -1247,6 +1257,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                   type='button'
                   className='project-form__chip project-form__chip--custom'
                   onClick={() => removeCustomCategory(label)}
+                  aria-label={`Remove custom category ${label}`}
                 >
                   {label} x
                 </button>
@@ -1254,7 +1265,11 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             </div>
 
             <div className='category-picker__custom'>
+              <label className='visually-hidden' htmlFor='project-custom-category'>
+                Suggest or create a subcategory
+              </label>
               <input
+                id='project-custom-category'
                 type='text'
                 value={customCategoryInput}
                 placeholder='Suggest or create subcategory'
@@ -1273,7 +1288,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             </div>
 
             {categoryError ? (
-              <p className='form-error'>{categoryError}</p>
+              <p className='form-error' role='alert'>{categoryError}</p>
             ) : null}
           </div>
         </div>
@@ -1536,15 +1551,25 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                     />
                   </label>
 
-                  <label>Instructions</label>
+                  <span
+                    id={`step-instructions-label-${stepIndex}`}
+                    className='field-label'
+                  >
+                    Instructions for step {stepIndex + 1}
+                  </span>
                   <RichTextEditor
                     value={step.content}
                     onChange={(html) =>
                       updateStepField(stepIndex, 'content', html)
                     }
                     placeholder='Mark and cut all base pieces, then dry-fit before glue-up.'
+                    labelledBy={`step-instructions-label-${stepIndex}`}
+                    describedBy={`step-instructions-help-${stepIndex}`}
                   />
-                  <p className='helper-copy'>
+                  <p
+                    id={`step-instructions-help-${stepIndex}`}
+                    className='helper-copy'
+                  >
                     Use lists or tables for materials and checks, and code
                     blocks if a step includes measurements or commands.
                   </p>
@@ -1573,6 +1598,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                             onClick={() =>
                               setStepImageFilter(stepIndex, filter)
                             }
+                            aria-pressed={activeFilter === filter}
                           >
                             {filter === 'all'
                               ? 'All'
