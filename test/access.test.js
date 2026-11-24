@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage, blockProfile, unblockProfile, getChat, getOlderChatMessages } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage, blockProfile, unblockProfile, getChat, getOlderChatMessages, deleteProjectComment } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { ChatReport } from '../models/chatReport.js';
@@ -30,6 +30,47 @@ import { validateImageDimensions } from '../lib/image-dimensions.js';
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
 const visitor = new Types.ObjectId();
+
+test('comment owner can delete a comment when the API selects its subdocument id', async () => {
+  const savedFindById = Project.findById;
+  const savedUpdateOne = Project.updateOne;
+  const commentId = new Types.ObjectId();
+  let selectedFields = '';
+  let updateFilter;
+  Project.findById = () => ({
+    select(fields) { selectedFields = fields; return this; },
+    async exec() {
+      return {
+        visible: true,
+        owner,
+        comments: [{ _id: commentId, owner }],
+      };
+    },
+  });
+  Project.updateOne = (filter) => {
+    updateFilter = filter;
+    return { async exec() { return { modifiedCount: 1 }; } };
+  };
+  const response = {
+    statusCode: 200,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+    end() { this.ended = true; return this; },
+  };
+  try {
+    await deleteProjectComment({
+      params: { id: projectId.toString(), commentId: commentId.toString() },
+      user: { profile: { _id: owner, role: 'user' } },
+    }, response);
+    assert.match(selectedFields, /comments\._id/);
+    assert.equal(response.statusCode, 204);
+    assert.equal(response.ended, true);
+    assert.equal(String(updateFilter.comments.$elemMatch._id), commentId.toString());
+  } finally {
+    Project.findById = savedFindById;
+    Project.updateOne = savedUpdateOne;
+  }
+});
 
 const request = (app, method, path, headers = {}) => new Promise((resolve, reject) => {
   let output = '';

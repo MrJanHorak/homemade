@@ -1081,12 +1081,12 @@ const addProjectComment = async (req, res) => {
 
 const deleteProjectComment = async (req, res) => {
   const viewerId = req.user.profile._id;
-  const project = await Project.findById(req.params.id).select('visible owner comments.owner').exec();
+  const project = await Project.findById(req.params.id).select('visible owner comments._id comments.owner').exec();
   if (!canViewProject(project, viewerId)) {
     res.status(404).json({ error: 'Project not found' });
     return;
   }
-  const comment = project.comments?.find((item) => item._id.equals(req.params.commentId));
+  const comment = project.comments?.find((item) => String(item._id) === req.params.commentId);
   if (!comment) {
     res.status(404).json({ error: 'Comment not found' });
     return;

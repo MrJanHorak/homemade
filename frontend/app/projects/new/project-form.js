@@ -1088,7 +1088,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             </label>
             <button
               type='button'
-              className='button button--ghost'
+              className='button button--compact button--ghost'
               onClick={() => removeListField(field, index)}
               aria-label={`Remove ${label.toLowerCase()} ${index + 1}`}
             >
@@ -1356,8 +1356,10 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
               </>
             ) : null}
 
-            <label>
-              {isEditMode ? 'Add more pictures' : 'Image library'}
+            <div className='project-form__image-picker'>
+              <span>{isEditMode ? 'Add more pictures' : 'Image library'}</span>
+              <label className='project-form__file-picker button button--compact button--ghost'>
+                <span>Choose files</span>
               <input
                 ref={imageInputRef}
                 type='file'
@@ -1365,7 +1367,8 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                 accept='image/jpeg,image/png'
                 onChange={handleFileChange}
               />
-            </label>
+              </label>
+            </div>
             <p className='helper-copy'>
               {isEditMode
                 ? 'New uploads are appended to your existing project images.'

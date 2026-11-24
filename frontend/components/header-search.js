@@ -102,6 +102,7 @@ const HeaderSearch = () => {
         className='site-nav__item inline-search__toggle'
         aria-label='Search'
         aria-expanded={isOpen}
+        tabIndex={isOpen ? -1 : 0}
         onClick={() => setIsOpen(true)}
       >
         <img
@@ -118,6 +119,7 @@ const HeaderSearch = () => {
         className='inline-search__input'
         placeholder='Search projects'
         aria-label='Search projects'
+        tabIndex={isOpen ? 0 : -1}
         onBlur={handleBlur}
       />
     </form>

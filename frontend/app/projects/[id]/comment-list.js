@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api';
 
@@ -11,6 +11,14 @@ const CommentList = ({ projectId, comments }) => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [removed, setRemoved] = useState([]);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const deleteDialogRef = useRef(null);
+  const deleteButtonRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = deleteDialogRef.current;
+    if (pendingDelete && dialog && !dialog.open) dialog.showModal();
+  }, [pendingDelete]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -25,7 +33,8 @@ const CommentList = ({ projectId, comments }) => {
   }, [projectId]);
 
   const removeComment = async (commentId) => {
-    if (!window.confirm('Delete this comment?')) return;
+    deleteDialogRef.current?.close();
+    setPendingDelete(null);
     setDeleting(commentId);
     setError('');
     setMessage('');
@@ -52,6 +61,29 @@ const CommentList = ({ projectId, comments }) => {
     <>
       {error ? <p className='form-error' role='alert'>{error}</p> : null}
       <p className='helper-copy' role='status'>{message}</p>
+      {pendingDelete ? (
+        <dialog
+          ref={deleteDialogRef}
+          className='confirm-dialog'
+          aria-labelledby='delete-comment-title'
+          aria-describedby='delete-comment-description'
+          onClose={() => {
+            setPendingDelete(null);
+            deleteButtonRef.current?.focus();
+          }}
+          onClick={(event) => {
+            if (event.target === deleteDialogRef.current) deleteDialogRef.current.close();
+          }}
+        >
+          <p className='eyebrow'>Comment</p>
+          <h2 id='delete-comment-title'>Delete this comment?</h2>
+          <p id='delete-comment-description'>This will permanently remove your comment from the project discussion.</p>
+          <div className='confirm-dialog__actions'>
+            <button type='button' className='button button--ghost' onClick={() => deleteDialogRef.current?.close()}>Cancel</button>
+            <button type='button' className='button' onClick={() => removeComment(pendingDelete)}>Delete comment</button>
+          </div>
+        </dialog>
+      ) : null}
       <div className='comment-list'>
         {visibleComments.length ? visibleComments.map((comment) => (
           <article key={comment.id} className='comment-card'>
@@ -64,7 +96,7 @@ const CommentList = ({ projectId, comments }) => {
             </div>
             <p>{comment.content}</p>
             {viewer && (viewer.id === comment.owner || viewer.role === 'admin') ? (
-              <button type='button' className='button button--ghost button--compact' onClick={() => removeComment(comment.id)} disabled={Boolean(deleting)} aria-label={`Delete comment by ${comment.name || 'maker'}`}>
+              <button type='button' className='button button--ghost button--compact' onClick={(event) => { deleteButtonRef.current = event.currentTarget; setPendingDelete(comment.id); }} disabled={Boolean(deleting)} aria-label={`Delete comment by ${comment.name || 'maker'}`}>
                 {deleting === comment.id ? 'Deleting...' : 'Delete comment'}
               </button>
             ) : null}
