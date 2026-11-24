@@ -23,9 +23,11 @@ The November 23, 2026 audit reviewed `3d58f89`. At that point the Next.js app co
 
 The findings below record the original audit and include items already addressed by this update.
 
-Local verification passed for the four `npm test` regression groups and backend syntax checks. A production build passed using a temporary output directory with its route folders precreated after ordinary rebuilds hit intermittent Windows `EPERM` errors. The built project page passed a fixture-based server-rendering check for a guest and the project owner. Registry DNS and localhost connections from the managed session were blocked, so live browser, database, OAuth, S3, and package-audit checks remain.
+The latest offline regression run passed 18 tests through the available Node runtime. Edited frontend components have also been syntax-checked. An earlier production build passed using a temporary output directory with route folders precreated after ordinary rebuilds hit intermittent Windows `EPERM` errors; that build predates the later changes above. The earlier built project page passed a fixture-based server-rendering check for a guest and owner. The current shell could not find `npm`, and registry and localhost access were blocked in earlier checks, so a fresh clean build, live browser and database checks, OAuth, S3, and package audit remain outstanding.
 
-## Release blockers
+## Original audit findings and release blockers
+
+This table records the findings at `3d58f89`; it is historical evidence, not a list of unfixed defects. Use the implementation update above and the delivery checks below to determine what remains. In particular, legacy route containment and several authentication, upload, query, and draft fixes have since been implemented locally but still need the listed deployment and integration verification.
 
 | Priority | Finding and impact | Remediation |
 | --- | --- | --- |
@@ -63,7 +65,7 @@ Local verification passed for the four `npm test` regression groups and backend 
 3. **Finish the core maker loop.** Fix detail rendering and image references first. Align browse/search, then finish publish/edit and draft recovery, then refine save/rate/comment and profile entry points. Check the complete journey on desktop and a narrow mobile viewport with keyboard navigation, slow requests, an interrupted draft, and sample pre-migration records.
 4. **Harden community features and operations.** Add chat pagination, hide/retry states and report/block. Improve moderator queues, add observability with redaction, and validate data migrations and backups before retiring the remaining EJS templates. Measure browse, detail and inbox response times with realistic fixtures.
 
-## Verification for this review
+## Verification at the original audit
 
 - Reviewed Next.js routes, Express JSON and legacy routes, auth and sessions, Socket.IO, persistence models, S3 integration, and the lockfile. Ran `node --check` on all tracked backend JavaScript. Those syntax checks passed.
 - Confirmed that `npm test` is a placeholder and frontend lint prompts for initial ESLint configuration. The production build encountered DNS failure for Google Fonts and a Windows `EPERM` under `frontend/.next/types`. The registry was unreachable for a full npm audit. The advisory ranges above were checked against upstream advisories.

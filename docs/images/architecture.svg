@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">HomeMade application architecture</title>
+  <desc id="desc">A browser connects to the Next.js frontend, which uses the Express API. Express reads and writes MongoDB and uploads images to S3.</desc>
+  <rect width="1200" height="360" rx="24" fill="#fff8de"/>
+  <text x="42" y="52" fill="#201b10" font-family="Arial,sans-serif" font-size="26" font-weight="700">How HomeMade fits together</text>
+  <g font-family="Arial,sans-serif" fill="#201b10">
+    <rect x="40" y="132" width="204" height="116" rx="18" fill="#f6c901" stroke="#201b10" stroke-width="2"/>
+    <text x="142" y="178" text-anchor="middle" font-size="21" font-weight="700">Browser</text>
+    <text x="142" y="207" text-anchor="middle" font-size="15">Maker interface</text>
+    <rect x="306" y="132" width="225" height="116" rx="18" fill="#fff" stroke="#201b10" stroke-width="2"/>
+    <text x="418" y="178" text-anchor="middle" font-size="21" font-weight="700">Next.js</text>
+    <text x="418" y="207" text-anchor="middle" font-size="15">Pages and shared UI</text>
+    <rect x="598" y="132" width="225" height="116" rx="18" fill="#fff" stroke="#201b10" stroke-width="2"/>
+    <text x="710" y="178" text-anchor="middle" font-size="21" font-weight="700">Express API</text>
+    <text x="710" y="207" text-anchor="middle" font-size="15">Auth and application data</text>
+    <rect x="906" y="85" width="248" height="90" rx="18" fill="#eee3c7" stroke="#201b10" stroke-width="2"/>
+    <text x="1030" y="126" text-anchor="middle" font-size="21" font-weight="700">MongoDB</text>
+    <text x="1030" y="151" text-anchor="middle" font-size="15">Projects, profiles, chats</text>
+    <rect x="906" y="205" width="248" height="90" rx="18" fill="#eee3c7" stroke="#201b10" stroke-width="2"/>
+    <text x="1030" y="246" text-anchor="middle" font-size="21" font-weight="700">S3</text>
+    <text x="1030" y="271" text-anchor="middle" font-size="15">Uploaded images</text>
+  </g>
+  <g fill="none" stroke="#201b10" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M245 190h50m-10-8 10 8-10 8"/><path d="M532 190h55m-10-8 10 8-10 8"/>
+    <path d="M824 174h38v-44h33m-10-8 10 8-10 8"/><path d="M824 205h38v45h33m-10-8 10 8-10 8"/>
+  </g>
+  <text x="42" y="329" fill="#5d5133" font-family="Arial,sans-serif" font-size="14">Browser API requests also go directly to Express; server-rendered viewer-aware pages forward the session cookie.</text>
+</svg>

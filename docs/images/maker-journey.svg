@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280" role="img" aria-labelledby="title desc">
+  <title id="title">A maker's path through HomeMade</title>
+  <desc id="desc">A maker explores projects, follows build steps, saves or discusses a project, and shares their own build.</desc>
+  <rect width="1200" height="280" rx="24" fill="#fff8de"/>
+  <text x="42" y="52" fill="#201b10" font-family="Arial,sans-serif" font-size="26" font-weight="700">From inspiration to your own build</text>
+  <g font-family="Arial,sans-serif" fill="#201b10">
+    <rect x="40" y="100" width="245" height="130" rx="18" fill="#f6c901" stroke="#201b10" stroke-width="2"/>
+    <text x="60" y="135" font-size="16" font-weight="700">01</text><text x="60" y="166" font-size="22" font-weight="700">Explore</text><text x="60" y="194" font-size="15">Search builds and makers</text>
+    <rect x="330" y="100" width="245" height="130" rx="18" fill="#fff" stroke="#201b10" stroke-width="2"/>
+    <text x="350" y="135" font-size="16" font-weight="700">02</text><text x="350" y="166" font-size="22" font-weight="700">Make</text><text x="350" y="194" font-size="15">Read steps and materials</text>
+    <rect x="620" y="100" width="245" height="130" rx="18" fill="#fff" stroke="#201b10" stroke-width="2"/>
+    <text x="640" y="135" font-size="16" font-weight="700">03</text><text x="640" y="166" font-size="22" font-weight="700">Connect</text><text x="640" y="194" font-size="15">Save, rate or discuss</text>
+    <rect x="910" y="100" width="245" height="130" rx="18" fill="#eee3c7" stroke="#201b10" stroke-width="2"/>
+    <text x="930" y="135" font-size="16" font-weight="700">04</text><text x="930" y="166" font-size="22" font-weight="700">Share</text><text x="930" y="194" font-size="15">Publish your own process</text>
+  </g>
+  <g fill="none" stroke="#201b10" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M287 165h32m-9-8 9 8-9 8"/><path d="M577 165h32m-9-8 9 8-9 8"/><path d="M867 165h32m-9-8 9 8-9 8"/></g>
+</svg>
