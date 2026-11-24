@@ -148,6 +148,30 @@ test('rating lookup requires a viewer, respects visibility, and returns only tha
   assert.equal((await request(apiWithViewer(owner), 'GET', path)).status, 200);
 });
 
+test('comment deletion requires visibility and author or admin permissions', async (t) => {
+  const commentId = new Types.ObjectId();
+  const project = { _id: projectId, owner, visible: true, comments: [{ _id: commentId, owner: visitor }] };
+  t.mock.method(Project, 'findById', () => ({ select() { return this; }, exec: async () => project }));
+  const update = t.mock.method(Project, 'updateOne', () => ({ exec: async () => ({ modifiedCount: 1 }) }));
+  const path = `/api/projects/${projectId}/comments/${commentId}`;
+  const other = new Types.ObjectId();
+  assert.equal((await request(apiWithViewer(), 'DELETE', path)).status, 401);
+  assert.equal((await request(apiWithViewer(owner), 'DELETE', path)).status, 403);
+  assert.equal((await request(apiWithViewer(other), 'DELETE', path)).status, 403);
+  assert.equal(update.mock.callCount(), 0);
+  assert.equal((await request(apiWithViewer(visitor), 'DELETE', path)).status, 204);
+  const authorQuery = update.mock.calls[0].arguments[0];
+  assert.ok(authorQuery.comments.$elemMatch.owner.equals(visitor));
+  assert.ok(authorQuery.$or[1].owner.equals(visitor));
+  assert.equal((await request(apiWithViewer(other, 'admin'), 'DELETE', path)).status, 204);
+  assert.equal(update.mock.calls[1].arguments[0].comments.$elemMatch.owner, undefined);
+  project.visible = false;
+  assert.equal((await request(apiWithViewer(visitor), 'DELETE', path)).status, 404);
+  assert.equal((await request(apiWithViewer(other, 'admin'), 'DELETE', path)).status, 404);
+  assert.equal((await request(apiWithViewer(owner, 'admin'), 'DELETE', path)).status, 204);
+  assert.equal((await request(apiWithViewer(owner), 'DELETE', `/api/projects/${projectId}/comments/invalid`)).status, 404);
+});
+
 test('chat creation requires another existing profile and reuses an existing conversation', async (t) => {
   const exists = t.mock.method(Profile, 'exists', async ({ _id }) => _id === visitor.toString());
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: [] };

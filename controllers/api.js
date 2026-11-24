@@ -1004,6 +1004,38 @@ const addProjectComment = async (req, res) => {
   });
 };
 
+const deleteProjectComment = async (req, res) => {
+  const viewerId = req.user.profile._id;
+  const project = await Project.findById(req.params.id).select('visible owner comments.owner').exec();
+  if (!canViewProject(project, viewerId)) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+  const comment = project.comments?.find((item) => item._id.equals(req.params.commentId));
+  if (!comment) {
+    res.status(404).json({ error: 'Comment not found' });
+    return;
+  }
+  const isAdmin = req.user.profile.role === 'admin';
+  if (!isAdmin && !comment.owner?.equals(viewerId)) {
+    res.status(403).json({ error: 'You cannot delete this comment' });
+    return;
+  }
+
+  const commentFilter = { _id: req.params.commentId };
+  if (!isAdmin) commentFilter.owner = viewerId;
+  const result = await Project.updateOne({
+    _id: req.params.id,
+    $or: [{ visible: true }, { owner: viewerId }],
+    comments: { $elemMatch: commentFilter },
+  }, { $pull: { comments: commentFilter } }).exec();
+  if (!result.modifiedCount) {
+    res.status(404).json({ error: 'Project or comment no longer available' });
+    return;
+  }
+  res.status(204).end();
+};
+
 const getProjectRating = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const project = await Project.findById(req.params.id).select('visible owner ratings').exec();
@@ -1557,6 +1589,7 @@ export {
   hideChat,
   createProject,
   deleteProject,
+  deleteProjectComment,
   deleteProjectDraft,
   getChat,
   getCategories,

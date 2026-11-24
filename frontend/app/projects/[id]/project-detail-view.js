@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CommentForm from './comment-form';
+import CommentList from './comment-list';
 import ProjectActions from './project-actions';
 
 const MAX_RATING = 5;
@@ -421,30 +422,7 @@ const ProjectDetailView = ({ project, parsedInstructions }) => {
           </div>
         </div>
 
-        <div className='comment-list'>
-          {project.comments.length ? (
-            project.comments.map((comment) => (
-              <article key={comment.id} className='comment-card'>
-                <div className='comment-card__header'>
-                  <img
-                    src={comment.avatar}
-                    alt={comment.name}
-                    className='comment-card__avatar'
-                  />
-                  <div>
-                    <strong>{comment.name}</strong>
-                    <p>{formatDate(comment.createdAt)}</p>
-                  </div>
-                </div>
-                <p>{comment.content}</p>
-              </article>
-            ))
-          ) : (
-            <p className='empty-copy'>
-              No feedback yet. Be the first to add some context.
-            </p>
-          )}
-        </div>
+        <CommentList projectId={project.id} comments={project.comments} />
       </section>
 
       {lightbox.isOpen ? (

@@ -47,6 +47,7 @@ const validateId = (req, res, next, id) => {
 router.param('id', validateId);
 router.param('chatId', validateId);
 router.param('messageId', validateId);
+router.param('commentId', validateId);
 
 const checkDraftProfile = (req, res, next) => {
   const profile = req.get('X-Draft-Profile');
@@ -76,6 +77,7 @@ router.get(
 router.post('/projects/:id/save', isApiLoggedIn, handle(apiCtrl.saveProject));
 router.delete('/projects/:id/save', isApiLoggedIn, handle(apiCtrl.unsaveProject));
 router.post('/projects/:id/comments', isApiLoggedIn, handle(apiCtrl.addProjectComment));
+router.delete('/projects/:id/comments/:commentId', isApiLoggedIn, handle(apiCtrl.deleteProjectComment));
 
 router.get('/profiles', handle(apiCtrl.getProfiles));
 router.get(
