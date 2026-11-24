@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api';
 import { safeReturnTo } from '../../../../lib/return-to.js';
+import { removeTokenFromAddress } from '@/lib/auth-token';
 
 const VerifyEmailContent = () => {
   const searchParams = useSearchParams();
@@ -12,8 +13,13 @@ const VerifyEmailContent = () => {
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const [status, setStatus] = useState('Verifying your email...');
   const [hasError, setHasError] = useState(false);
+  const started = useRef(null);
 
   useEffect(() => {
+    if (started.current === token || (!token && started.current !== null)) return;
+    started.current = token;
+    setHasError(false);
+    setStatus('Verifying your email...');
     const verify = async () => {
       if (!token) {
         setStatus('Missing verification token.');
@@ -22,6 +28,7 @@ const VerifyEmailContent = () => {
       }
 
       try {
+        removeTokenFromAddress(window);
         const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
           method: 'POST',
           headers: {
@@ -29,10 +36,12 @@ const VerifyEmailContent = () => {
             Accept: 'application/json',
           },
           credentials: 'include',
+          referrerPolicy: 'no-referrer',
           body: JSON.stringify({ token }),
         });
 
         const data = await response.json().catch(() => ({}));
+        if (started.current !== token) return;
 
         if (!response.ok) {
           throw new Error(data.error || 'Unable to verify email.');
@@ -40,9 +49,10 @@ const VerifyEmailContent = () => {
 
         setStatus('Email verified. Redirecting...');
         window.setTimeout(() => {
-          window.location.replace(returnTo);
+          if (started.current === token) window.location.replace(returnTo);
         }, 800);
       } catch (error) {
+        if (started.current !== token) return;
         setStatus(error.message);
         setHasError(true);
       }
@@ -55,9 +65,12 @@ const VerifyEmailContent = () => {
     <main className='page-stack'>
       <section className='section-panel'>
         <h1>Email verification</h1>
-        <p>{status}</p>
+        <p role='status'>{status}</p>
         {hasError ? (
-          <Link href='/auth/sign-in' className='button button--ghost'>
+          <p>If the request failed, open your original link to try again.</p>
+        ) : null}
+        {hasError ? (
+          <Link href={`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`} className='button button--ghost'>
             Back to sign in
           </Link>
         ) : null}

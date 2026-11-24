@@ -19,6 +19,7 @@ import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } 
 import { MAX_CHAT_MESSAGE_LENGTH, validateChatMessage } from '../lib/chat-message.js';
 import { createAuthRateLimit } from '../middleware/authRateLimit.js';
 import { router as authRouter } from '../routes/auth.js';
+import { removeTokenFromAddress } from '../frontend/lib/auth-token.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -112,6 +113,21 @@ test('email auth requests are limited per IP and recover after the window', asyn
   }
   assert.equal(last.status, 429);
   assert.ok(Number(last.headers['retry-after']) > 0);
+});
+
+test('auth link cleanup removes tokens while preserving return paths and history state', () => {
+  const historyState = { key: 'navigation' };
+  const browser = {
+    location: { href: 'https://example.invalid/auth/magic-link?token=secret&returnTo=%2Fprojects%3Fpage%3D2&token=second#section' },
+    history: { state: historyState, replaceState(state, title, url) { this.saved = { state, title, url }; } },
+  };
+  removeTokenFromAddress(browser);
+  assert.equal(browser.history.saved.state, historyState);
+  assert.equal(browser.history.saved.url, '/auth/magic-link?returnTo=%2Fprojects%3Fpage%3D2#section');
+  browser.location.href = 'https://example.invalid/auth/magic-link?returnTo=%2Fprojects';
+  browser.history.saved = null;
+  removeTokenFromAddress(browser);
+  assert.equal(browser.history.saved, null);
 });
 
 test('hidden project details and interactions are limited to the owner', async (t) => {
