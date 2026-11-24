@@ -13,7 +13,7 @@ const HomePage = async () => {
     <div className='page-stack'>
       <section className='hero-panel hero-panel--diy'>
         <div className='hero-panel__copy'>
-          <p className='eyebrow'>Featured this week</p>
+          <p className='eyebrow'>Made by the community</p>
           <h1>Show what you built, how you built it, and what you learned.</h1>
           <p>
             Homemade is for people who care about the process as much as the
@@ -25,16 +25,16 @@ const HomePage = async () => {
             <Link href='/projects' className='button'>
               Explore projects
             </Link>
-            <Link href='/profiles' className='button button--ghost'>
-              Meet creators
+            <Link href='/projects/new' className='button button--ghost'>
+              Share a build
             </Link>
           </div>
         </div>
 
         <div className='hero-panel__stats'>
           <div className='stat-card stat-card--diy'>
-            <span className='stat-card__value'>{projects.length}</span>
-            <span className='stat-card__label'>Featured builds right now</span>
+            <span className='stat-card__value'>Share</span>
+            <span className='stat-card__label'>Your projects and what you learned</span>
           </div>
           <div className='stat-card stat-card--diy'>
             <span className='stat-card__value'>Build</span>
@@ -62,11 +62,11 @@ const HomePage = async () => {
           </Link>
         </div>
 
-        <div className='project-grid'>
+        {projects.length ? <div className='project-grid'>
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} diyTone='bold' />
           ))}
-        </div>
+        </div> : <p className='empty-copy'>No builds have been shared yet. <Link href='/projects/new'>Share the first build</Link>.</p>}
       </section>
     </div>
   );

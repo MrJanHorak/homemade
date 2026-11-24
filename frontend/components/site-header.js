@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import AuthControls from '@/components/auth-controls';
 import HeaderSearch from '@/components/header-search';
+import SiteNavLinks from '@/components/site-nav-links';
 import { API_BASE_URL } from '@/lib/api';
 
 const SiteHeader = () => {
@@ -20,31 +21,8 @@ const SiteHeader = () => {
           />
         </Link>
 
-        <nav className='site-nav'>
-          <Link href='/' className='site-nav__item'>
-            <img
-              src={`${API_BASE_URL}/images/nav/home-button-svgrepo-com.svg`}
-              alt='Home'
-              className='site-nav__icon'
-            />
-            <span>Home</span>
-          </Link>
-          <Link href='/projects' className='site-nav__item'>
-            <img
-              src={`${API_BASE_URL}/images/nav/add-square-svgrepo-com.svg`}
-              alt='Projects'
-              className='site-nav__icon'
-            />
-            <span>Projects</span>
-          </Link>
-          <Link href='/profiles' className='site-nav__item'>
-            <img
-              src={`${API_BASE_URL}/images/nav/multiple-user-profile-images-svgrepo-com.svg`}
-              alt='Profiles'
-              className='site-nav__icon'
-            />
-            <span>Profiles</span>
-          </Link>
+        <nav className='site-nav' aria-label='Main navigation'>
+          <SiteNavLinks />
           <Suspense>
             <HeaderSearch />
           </Suspense>

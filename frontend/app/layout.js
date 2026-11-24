@@ -11,9 +11,10 @@ const RootLayout = ({ children }) => {
   return (
     <html lang='en'>
       <body>
+        <a className='skip-link' href='#main-content'>Skip to main content</a>
         <div className='site-shell'>
           <SiteHeader />
-          <main className='site-shell__content'>{children}</main>
+          <main id='main-content' tabIndex={-1} className='site-shell__content'>{children}</main>
         </div>
       </body>
     </html>

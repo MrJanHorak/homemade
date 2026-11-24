@@ -22,6 +22,22 @@
   box-sizing: border-box;
 }
 
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 200;
+  padding: 10px 14px;
+  background: #fff;
+  color: #000;
+  border: 2px solid #000;
+  transform: translateY(-160%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 html {
   min-height: 100%;
 }
@@ -315,6 +331,12 @@ h3 {
 .site-nav a:hover {
   background: white;
   transform: translateY(-1px);
+}
+
+.site-nav a[aria-current='page'] {
+  background: #fff;
+  border-color: #000;
+  box-shadow: inset 0 -2px 0 #000;
 }
 
 .inline-search__toggle:hover {
