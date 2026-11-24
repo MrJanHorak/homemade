@@ -120,6 +120,8 @@ Email authentication POST endpoints share a limit of 30 requests per IP per 15 m
 
 For uploads, set `S3_BUCKET` and `AWS_REGION` and use the AWS SDK credential chain. Use a test bucket. The app currently stores direct S3 image URLs, so hiding a project in HomeMade does not revoke those URLs.
 
+The upload service attempts to delete every object from a failed upload batch before a database write starts. Its S3 credentials need `s3:DeleteObject` as well as `s3:PutObject` for those app-owned keys. Cleanup is best effort; failed cleanup and ambiguous database-write outcomes still require storage reconciliation.
+
 Use these origins for local development.
 
 - `FRONTEND_URL=http://localhost:3001`

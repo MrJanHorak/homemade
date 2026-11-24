@@ -20,6 +20,7 @@ import { MAX_CHAT_MESSAGE_LENGTH, validateChatMessage } from '../lib/chat-messag
 import { createAuthRateLimit } from '../middleware/authRateLimit.js';
 import { router as authRouter } from '../routes/auth.js';
 import { removeTokenFromAddress } from '../frontend/lib/auth-token.js';
+import { uploadImages } from '../services/s3Service.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -128,6 +129,33 @@ test('auth link cleanup removes tokens while preserving return paths and history
   browser.history.saved = null;
   removeTokenFromAddress(browser);
   assert.equal(browser.history.saved, null);
+});
+
+test('failed upload batches clean all attempted objects before propagating the error', async (t) => {
+  const previousBucket = process.env.S3_BUCKET;
+  process.env.S3_BUCKET = 'test-bucket';
+  t.after(() => { if (previousBucket === undefined) delete process.env.S3_BUCKET; else process.env.S3_BUCKET = previousBucket; });
+  const operations = [];
+  let destroyed = false;
+  let sequence = 0;
+  const client = {
+    async send(command) {
+      operations.push({ type: command.constructor.name, key: command.input.Key });
+      if (command.constructor.name === 'PutObjectCommand' && command.input.Key.includes('second.png')) throw new Error('upload failed');
+      return {};
+    },
+    destroy() { destroyed = true; },
+  };
+  const files = [{ originalname: 'first.png', mimetype: 'image/png', buffer: Buffer.alloc(0) }, { originalname: 'second.png', mimetype: 'image/png', buffer: Buffer.alloc(0) }];
+  await assert.rejects(uploadImages('projects', files, { client, createId: () => String(++sequence) }), /upload failed/);
+  assert.deepEqual(operations.filter((item) => item.type === 'DeleteObjectCommand').map((item) => item.key), ['projects/1-first.png', 'projects/2-second.png']);
+  assert.equal(destroyed, true);
+
+  const successOperations = [];
+  const successClient = { async send(command) { successOperations.push(command.constructor.name); return {}; }, destroy() {} };
+  const urls = await uploadImages('projects', [files[0]], { client: successClient, createId: () => 'test-id' });
+  assert.equal(urls.length, 1);
+  assert.deepEqual(successOperations, ['PutObjectCommand']);
 });
 
 test('hidden project details and interactions are limited to the owner', async (t) => {
