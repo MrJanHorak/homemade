@@ -39,6 +39,8 @@ const projectDraftSchema = new Schema(
       unique: true,
       index: true,
     },
+    revision: { type: Number, default: 0 },
+    deleted: { type: Boolean, default: false },
     title: {
       type: String,
       default: '',

@@ -92,6 +92,9 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
   const [draftChoice, setDraftChoice] = useState(null);
   const [missingDraftAttachments, setMissingDraftAttachments] = useState(false);
   const draftQueue = useRef(Promise.resolve());
+  const draftRevision = useRef(null);
+  const cloudWritesBlocked = useRef(false);
+  const draftHasConflict = useRef(false);
   const suppressedDraftForm = useRef(null);
   const draftProfileId = session.user?.profile?.id;
   const localDraftKey = draftProfileId ? `homemade.project-form-draft.v2.${draftProfileId}` : null;
@@ -211,16 +214,20 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
     buildPictures: [],
   });
 
-  const restoreDraft = (draft, source) => {
+  const restoreDraft = (draft, source, saveSelection = false) => {
     const restoredSteps = normalizeSteps(draft.buildSteps);
     setMissingDraftAttachments(restoredSteps.some((step) => step.imageIndexes.length > 0));
-    setForm((current) => ({
-      ...current,
-      ...draft,
-      otherCategory: Array.isArray(draft.otherCategory) ? draft.otherCategory : [],
-      buildPictures: [],
-      buildSteps: clearMissingDraftAttachments(restoredSteps),
-    }));
+    setForm((current) => {
+      const restored = {
+        ...current,
+        ...draft,
+        otherCategory: Array.isArray(draft.otherCategory) ? draft.otherCategory : [],
+        buildPictures: [],
+        buildSteps: clearMissingDraftAttachments(restoredSteps),
+      };
+      if (source === 'Cloud' && !saveSelection) suppressedDraftForm.current = restored;
+      return restored;
+    });
     setDraftState(`${source} draft restored. Re-select any images.`);
   };
 
@@ -231,13 +238,17 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       headers: {
         'Content-Type': 'application/json',
         'X-Draft-Profile': draftProfileId,
+        'X-Draft-Revision': String(draftRevision.current),
       },
       body: JSON.stringify(draftPayload),
     });
 
     if (!response.ok) {
+      if (response.status === 409) throw Object.assign(new Error('DRAFT_CONFLICT'), { conflict: true });
       throw new Error(`Draft save failed: ${response.status}`);
     }
+    const result = await response.json();
+    draftRevision.current = result.draft.revision;
   };
 
   const loadDraftFromApi = async () => {
@@ -261,12 +272,15 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
     const response = await fetch(`${API_BASE_URL}/api/projects/draft`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: { 'X-Draft-Profile': draftProfileId },
+      headers: { 'X-Draft-Profile': draftProfileId, 'X-Draft-Revision': String(draftRevision.current) },
     });
 
-    if (!response.ok && response.status !== 404) {
+    if (!response.ok) {
+      if (response.status === 409) throw Object.assign(new Error('DRAFT_CONFLICT'), { conflict: true });
       throw new Error(`Draft delete failed: ${response.status}`);
     }
+    const result = await response.json();
+    draftRevision.current = result.revision;
   };
 
   useEffect(() => {
@@ -465,6 +479,10 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       }
 
       if (!active) return;
+      if (!loadFailed && !Number.isSafeInteger(cloudDraft?.revision)) loadFailed = true;
+      draftRevision.current = loadFailed ? null : cloudDraft.revision;
+      cloudWritesBlocked.current = loadFailed;
+      draftHasConflict.current = false;
       setCloudDraftUnavailable(loadFailed);
       if (!loadFailed && localDraft?.draft && cloudDraft?.draft) {
         setDraftChoice({ local: localDraft, cloud: cloudDraft });
@@ -480,6 +498,8 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
         if (loadFailed) setDraftState('Cloud draft unavailable. Local draft restored; edits will stay on this device. Reload when online to check the cloud draft. Re-select any images.');
       } else if (loadFailed) {
         setDraftState('Cloud draft unavailable. Edits will stay on this device. Reload when online to check the cloud draft.');
+      } else {
+        suppressedDraftForm.current = form;
       }
 
       setHasInitializedDraft(true);
@@ -499,22 +519,32 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
 
         const draft = buildDraftPayload(form);
         const savedAt = Date.now();
+        const localCopy = JSON.stringify({ draft, savedAt });
         let savedLocally = false;
         try {
-          window.localStorage.setItem(localDraftKey, JSON.stringify({ draft, savedAt }));
+          window.localStorage.setItem(localDraftKey, localCopy);
           savedLocally = true;
         } catch {
           // A cloud save can still succeed when local storage is unavailable.
         }
-        if (cloudDraftUnavailable) {
+        if (cloudDraftUnavailable || cloudWritesBlocked.current) {
           setDraftState(savedLocally
-            ? 'Cloud draft unavailable. Draft saved on this device. Reload when online to check the cloud draft.'
-            : 'Cloud draft unavailable and this device could not save the draft. Keep this page open and copy your work.');
+            ? (draftHasConflict.current ? 'The cloud draft changed in another session. Your work is saved on this device. Reload to review both copies.' : 'Cloud draft unavailable. Draft saved on this device. Reload when online to check the cloud draft.')
+            : 'Cloud saving is paused and this device could not save the draft. Keep this page open and copy your work.');
           return;
         }
         try {
           await saveDraftToApi(draft);
-        } catch {
+        } catch (error) {
+          if (error.conflict) {
+            cloudWritesBlocked.current = true;
+            draftHasConflict.current = true;
+            setCloudDraftUnavailable(true);
+            setDraftState(savedLocally
+              ? 'The cloud draft changed in another session. Your work is saved on this device. Reload to review both copies.'
+              : 'The cloud draft changed in another session, and this device could not save your work. Keep this page open and copy your work.');
+            return;
+          }
           if (!active || suppressedDraftForm.current === form) return;
           setDraftState(savedLocally
             ? 'Cloud save failed. Draft saved on this device.'
@@ -524,7 +554,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
 
         if (!active || suppressedDraftForm.current === form) return;
         try {
-          window.localStorage.removeItem(localDraftKey);
+          if (window.localStorage.getItem(localDraftKey) === localCopy) window.localStorage.removeItem(localDraftKey);
         } catch {
           // The cloud save already succeeded.
         }
@@ -769,13 +799,23 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
   const clearSavedDraft = async () => {
     suppressedDraftForm.current = form;
     try {
+      let localBefore = null;
+      try { if (localDraftKey) localBefore = window.localStorage.getItem(localDraftKey); } catch { /* Cloud clearing can still succeed. */ }
       const clear = draftQueue.current.catch(() => {}).then(clearDraftInApi);
       draftQueue.current = clear;
       await clear;
-      if (localDraftKey) window.localStorage.removeItem(localDraftKey);
+      if (localDraftKey && window.localStorage.getItem(localDraftKey) === localBefore) window.localStorage.removeItem(localDraftKey);
       setDraftState('Saved draft cleared. Your open form is still here.');
-    } catch {
-      setDraftState('Could not completely clear the saved draft. Try again.');
+    } catch (error) {
+      if (error.conflict) {
+        cloudWritesBlocked.current = true;
+        draftHasConflict.current = true;
+        suppressedDraftForm.current = null;
+        setCloudDraftUnavailable(true);
+        setDraftState('The cloud draft changed in another session and was not cleared. Reload to review both copies.');
+      } else {
+        setDraftState('Could not completely clear the saved draft. Try again.');
+      }
     }
   };
 
@@ -958,7 +998,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       return time && Number.isFinite(time.getTime()) ? time.toLocaleString() : 'Unknown';
     };
     const chooseDraft = (source) => {
-      restoreDraft(draftChoice[source].draft, source === 'local' ? 'Local' : 'Cloud');
+      restoreDraft(draftChoice[source].draft, source === 'local' ? 'Local' : 'Cloud', true);
       setDraftChoice(null);
       setHasInitializedDraft(true);
     };

@@ -53,6 +53,21 @@ const checkDraftProfile = (req, res, next) => {
   res.status(409).json({ error: 'Your account changed. Reopen the project form to continue.' });
 };
 
+const checkDraftRevision = (req, res, next) => {
+  const value = req.get('X-Draft-Revision');
+  if (value === undefined) {
+    res.status(428).json({ error: 'Reload the project form before saving or clearing a draft.' });
+    return;
+  }
+  const revision = Number(value);
+  if (!/^(0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(revision) || revision >= Number.MAX_SAFE_INTEGER) {
+    res.status(400).json({ error: 'Invalid draft revision.' });
+    return;
+  }
+  req.draftRevision = revision;
+  next();
+};
+
 router.get('/health', handle(apiCtrl.healthcheck));
 router.get('/session/current', handle(apiCtrl.getSession));
 router.get('/auth/providers', handle(apiCtrl.getAuthProviders));
@@ -61,8 +76,8 @@ router.get('/categories', handle(apiCtrl.getCategories));
 router.get('/projects', handle(apiCtrl.getProjects));
 router.post('/projects', isApiLoggedIn, upload, validateUploadedImages, handle(apiCtrl.createProject));
 router.get('/projects/draft', isApiLoggedIn, checkDraftProfile, handle(apiCtrl.getProjectDraft));
-router.put('/projects/draft', isApiLoggedIn, checkDraftProfile, handle(apiCtrl.saveProjectDraft));
-router.delete('/projects/draft', isApiLoggedIn, checkDraftProfile, handle(apiCtrl.deleteProjectDraft));
+router.put('/projects/draft', isApiLoggedIn, checkDraftProfile, checkDraftRevision, handle(apiCtrl.saveProjectDraft));
+router.delete('/projects/draft', isApiLoggedIn, checkDraftProfile, checkDraftRevision, handle(apiCtrl.deleteProjectDraft));
 router.get('/projects/:id', handle(apiCtrl.getProject));
 router.get('/projects/:id/rating', isApiLoggedIn, handle(apiCtrl.getProjectRating));
 router.put('/projects/:id', isApiLoggedIn, upload, validateUploadedImages, handle(apiCtrl.updateProject));

@@ -75,7 +75,9 @@ The principal JSON endpoints are listed below. Writes require a signed-in sessio
 
 Project browsing accepts `query`, `category`, `sort`, `page`, and `limit`; maker browsing accepts `name` and `skill`. The chat inbox can request `?summary=1` for the latest message per conversation. The moderation queue accepts `status`, `promoted`, `query`, `sort`, `direction`, `page`, and `limit`; pagination is opt-in for compatibility with older callers. `/api/search` remains available for existing clients.
 
-The project editor saves account-scoped drafts. Images are not saved in drafts: after restoring one, re-select and reattach them to steps. If both device and cloud drafts are present, choose the version to restore. Simultaneous edits across tabs or devices do not yet have server-side conflict detection.
+The project editor saves account-scoped drafts. Images are not saved in drafts: after restoring one, re-select and reattach them to steps. If both device and cloud drafts are present, choose the version to restore. Cloud saves and clears use revision checks; when another session changes the draft, cloud autosave pauses and the editor retains a device fallback when possible. Device fallback storage is shared by tabs for the same account, so simultaneous offline edits can still compete for that copy.
+
+Draft API clients must read the `revision` from `GET /api/projects/draft` and send it as `X-Draft-Revision` on `PUT` or `DELETE`. A successful write returns the new revision; a stale write returns 409, and a missing revision returns 428. Clearing leaves an empty revision marker to reject stale requests. Deploy the frontend and API together, verify the unique `ProjectDraft.owner` index exists, and preserve these markers during normal operation.
 
 ## Category moderation
 

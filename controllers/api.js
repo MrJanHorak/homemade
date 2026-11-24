@@ -551,14 +551,16 @@ const getProjectDraft = async (req, res) => {
     .lean()
     .exec();
 
-  if (!draft) {
+  if (!draft || draft.deleted) {
     res.json({
       draft: null,
+      revision: draft?.revision ?? 0,
     });
     return;
   }
 
   res.json({
+    revision: draft.revision ?? 0,
     updatedAt: draft.updatedAt,
     draft: {
       title: draft.title || '',
@@ -598,6 +600,24 @@ const getProjectDraft = async (req, res) => {
   });
 };
 
+const updateDraftAtRevision = async (owner, revision, changes) => {
+  const filter = { owner, ...(revision === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision }) };
+  try {
+    return await ProjectDraft.findOneAndUpdate(filter, {
+      ...changes,
+      $inc: { revision: 1 },
+    }, {
+      upsert: revision === 0,
+      new: true,
+      runValidators: true,
+      setDefaultsOnInsert: false,
+    }).lean().exec();
+  } catch (error) {
+    if (error.code === 11000) return null;
+    throw error;
+  }
+};
+
 const saveProjectDraft = async (req, res) => {
   const customCategories = cleanCustomCategories(req.body.otherCategory);
 
@@ -631,36 +651,34 @@ const saveProjectDraft = async (req, res) => {
     buildSteps: cleanDraftSteps(req.body.buildSteps),
   };
 
-  const draft = await ProjectDraft.findOneAndUpdate(
-    { owner: req.user.profile._id },
-    {
-      $set: {
-        owner: req.user.profile._id,
-        ...draftPayload,
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-      runValidators: true,
-      setDefaultsOnInsert: true,
-    },
-  )
-    .lean()
-    .exec();
+  const draft = await updateDraftAtRevision(req.user.profile._id, req.draftRevision, {
+    $set: { ...draftPayload, deleted: false },
+  });
+  if (!draft) {
+    res.status(409).json({ error: 'The cloud draft changed in another session. Reload to review both copies.' });
+    return;
+  }
 
   res.json({
     draft: {
       id: draft._id.toString(),
       updatedAt: draft.updatedAt,
+      revision: draft.revision,
     },
   });
 };
 
 const deleteProjectDraft = async (req, res) => {
-  await ProjectDraft.deleteOne({ owner: req.user.profile._id }).exec();
-
-  res.status(204).send();
+  const fields = ['title', 'description', 'buildTime', 'difficulty', 'estimatedCost', 'categories', 'otherCategory', 'materialsNeeded', 'toolsNeeded', 'externalLinks', 'visible', 'buildSteps'];
+  const draft = await updateDraftAtRevision(req.user.profile._id, req.draftRevision, {
+    $set: { deleted: true },
+    $unset: Object.fromEntries(fields.map((field) => [field, 1])),
+  });
+  if (!draft) {
+    res.status(409).json({ error: 'The cloud draft changed in another session. Reload to review both copies.' });
+    return;
+  }
+  res.json({ revision: draft.revision });
 };
 
 const getCategorySuggestions = async (req, res) => {

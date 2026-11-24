@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, saveProjectDraft, addChatMessage, editChatMessage } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { Profile } from '../models/profile.js';
@@ -454,12 +454,74 @@ test('draft recovery clears unavailable attachments and retains image placement'
     return { lean() { return this; }, exec: async () => ({ _id: projectId }) };
   });
   const res = { json(body) { this.body = body; return this; }, status(code) { this.statusCode = code; return this; } };
-  await saveProjectDraft({ user: { profile: { _id: owner } }, body: { buildSteps: [...steps, { title: 'Finish' }] } }, res);
+  await saveProjectDraft({ user: { profile: { _id: owner } }, draftRevision: 0, body: { buildSteps: [...steps, { title: 'Finish' }] } }, res);
   assert.equal(saved.buildSteps[0].imagePosition, 'before');
   assert.equal(saved.buildSteps[1].imagePosition, 'after');
   const draft = new ProjectDraft({ owner, buildSteps: saved.buildSteps });
   assert.equal(draft.validateSync(), undefined);
   assert.equal(draft.buildSteps[0].imagePosition, 'before');
+});
+
+test('draft revisions reject stale writes and clears, including after deletion', async (t) => {
+  assert.ok(ProjectDraft.schema.indexes().some(([keys, options]) => keys.owner === 1 && options.unique === true));
+  let stored = { _id: projectId, owner, title: 'Old record', buildSteps: [] };
+  t.mock.method(ProjectDraft, 'findOne', () => ({ lean() { return this; }, exec: async () => stored ? { ...stored } : null }));
+  t.mock.method(ProjectDraft, 'findOneAndUpdate', (filter, update, options) => ({
+    lean() { return this; },
+    async exec() {
+      const expected = filter.$or ? 0 : filter.revision;
+      if (!stored && !options.upsert) return null;
+      const actual = stored?.revision ?? 0;
+      if (actual !== expected) {
+        if (options.upsert) throw Object.assign(new Error('duplicate'), { code: 11000 });
+        return null;
+      }
+      stored = { _id: projectId, owner, ...stored, ...update.$set, revision: actual + 1 };
+      for (const key of Object.keys(update.$unset || {})) delete stored[key];
+      return { ...stored };
+    },
+  }));
+  const res = () => ({ statusCode: 200, set() { return this; }, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
+  const req = (revision, title = '') => ({ user: { profile: { _id: owner } }, draftRevision: revision, body: { title } });
+  const read = res();
+  await getProjectDraft(req(), read);
+  assert.equal(read.body.revision, 0);
+  assert.equal(read.body.draft.title, 'Old record');
+  const save = res();
+  await saveProjectDraft(req(0, 'First tab'), save);
+  assert.equal(save.body.draft.revision, 1);
+  const stale = res();
+  await saveProjectDraft(req(0, 'Stale tab'), stale);
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stored.title, 'First tab');
+  const clear = res();
+  await deleteProjectDraft(req(1), clear);
+  assert.equal(clear.body.revision, 2);
+  assert.equal(stored.title, undefined);
+  const staleClear = res();
+  await deleteProjectDraft(req(1), staleClear);
+  assert.equal(staleClear.statusCode, 409);
+  const staleSave = res();
+  await saveProjectDraft(req(1, 'Resurrected'), staleSave);
+  assert.equal(staleSave.statusCode, 409);
+  const after = res();
+  await getProjectDraft(req(), after);
+  assert.equal(after.body.draft, null);
+  assert.equal(after.body.revision, 2);
+  const next = res();
+  await saveProjectDraft(req(2, 'Fresh draft'), next);
+  assert.equal(next.body.draft.revision, 3);
+  assert.equal(stored.title, 'Fresh draft');
+  assert.equal(stored.deleted, false);
+  stored = null;
+  const empty = res();
+  await getProjectDraft(req(), empty);
+  assert.equal(empty.body.revision, 0);
+  const created = res();
+  await saveProjectDraft(req(0, 'New account'), created);
+  assert.equal(created.body.draft.revision, 1);
+  assert.equal((await request(apiWithViewer(owner), 'PUT', '/api/projects/draft')).status, 428);
+  assert.equal((await request(apiWithViewer(owner), 'DELETE', '/api/projects/draft', { 'x-draft-revision': 'invalid' })).status, 400);
 });
 
 test('step image indexes distinguish duplicate and punctuation-heavy filenames while old names still resolve', () => {
