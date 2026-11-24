@@ -241,12 +241,15 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   const oldMessage = { _id: new Types.ObjectId(), message: 'older message' };
   const newMessage = { _id: new Types.ObjectId(), message: 'latest message' };
   const slices = [];
+  const windows = [];
   const find = t.mock.method(Chat, 'find', () => {
     let summary = false;
     return {
       slice(path, count) { slices.push([path, count]); summary = true; return this; },
       populate() { return this; },
       sort() { return this; },
+      skip(count) { windows.push(['skip', count]); return this; },
+      limit(count) { windows.push(['limit', count]); return this; },
       exec: async () => [{ _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: summary ? [newMessage] : [oldMessage, newMessage] }],
     };
   });
@@ -263,6 +266,10 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   const legacy = await request(apiWithViewer(owner), 'GET', '/api/chats');
   assert.match(legacy.output, /older message/);
   assert.equal(slices.length, 1);
+  const page = await request(apiWithViewer(owner), 'GET', '/api/chats?summary=1&page=2&limit=20');
+  assert.equal(page.status, 200);
+  assert.match(page.output, /"hasMore":false/);
+  assert.deepEqual(windows, [['skip', 20], ['limit', 20]]);
 });
 
 test('chat writes reject malformed and oversized text without weakening participant or author checks', async (t) => {

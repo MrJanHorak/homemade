@@ -32,6 +32,9 @@ const ChatShell = ({ chatId }) => {
   const router = useRouter();
   const [session, setSession] = useState(emptySession);
   const [chats, setChats] = useState([]);
+  const [inboxPage, setInboxPage] = useState(1);
+  const [inboxHasMore, setInboxHasMore] = useState(false);
+  const [isLoadingMoreChats, setIsLoadingMoreChats] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -44,6 +47,7 @@ const ChatShell = ({ chatId }) => {
   const [editText, setEditText] = useState('');
   const composerRef = useRef(null);
   const requestVersion = useRef(0);
+  const inboxPageRef = useRef(1);
 
   const returnTo = useMemo(
     () => (chatId ? `/chats/${chatId}` : '/chats'),
@@ -52,7 +56,7 @@ const ChatShell = ({ chatId }) => {
 
   const loadChats = async () => {
     const version = ++requestVersion.current;
-    const chatsResponse = await fetch(`${API_BASE_URL}/api/chats?summary=1`, {
+    const chatsResponse = await fetch(`${API_BASE_URL}/api/chats?summary=1&page=1&limit=30`, {
       credentials: 'include',
     });
     if (version !== requestVersion.current) return;
@@ -68,7 +72,13 @@ const ChatShell = ({ chatId }) => {
 
     const chatsData = await chatsResponse.json();
     if (version !== requestVersion.current) return;
-    setChats(chatsData.chats || []);
+    const firstPage = chatsData.chats || [];
+    setChats((previous) => {
+      if (inboxPageRef.current === 1) return firstPage;
+      const firstIds = new Set(firstPage.map((chat) => chat.id));
+      return [...firstPage, ...previous.filter((chat) => !firstIds.has(chat.id))];
+    });
+    setInboxHasMore(Boolean(chatsData.hasMore));
 
     if (!chatId && chatsData.chats?.length) {
       setActiveChat(null);
@@ -87,6 +97,30 @@ const ChatShell = ({ chatId }) => {
       } else {
         setActiveChat(null);
       }
+    }
+  };
+
+  const loadMoreChats = async () => {
+    if (isLoadingMoreChats || !inboxHasMore) return;
+    setIsLoadingMoreChats(true);
+    try {
+      const nextPage = inboxPage + 1;
+      const response = await fetch(`${API_BASE_URL}/api/chats?summary=1&page=${nextPage}&limit=30`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Unable to load more conversations.');
+      const payload = await response.json();
+      setChats((previous) => {
+        const seen = new Set(previous.map((chat) => chat.id));
+        return [...previous, ...(payload.chats || []).filter((chat) => !seen.has(chat.id))];
+      });
+      inboxPageRef.current = nextPage;
+      setInboxPage(nextPage);
+      setInboxHasMore(Boolean(payload.hasMore));
+    } catch {
+      setError('Unable to load more conversations. Try again.');
+    } finally {
+      setIsLoadingMoreChats(false);
     }
   };
 
@@ -364,6 +398,11 @@ const ChatShell = ({ chatId }) => {
               No chats yet. Start one from a profile page.
             </p>
           )}
+          {inboxHasMore ? (
+            <button type='button' className='button button--ghost button--compact' onClick={loadMoreChats} disabled={isLoadingMoreChats}>
+              {isLoadingMoreChats ? 'Loading…' : 'Load more conversations'}
+            </button>
+          ) : null}
         </aside>
 
         <div className='chat-thread'>

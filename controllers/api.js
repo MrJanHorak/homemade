@@ -1402,20 +1402,25 @@ const searchProjects = async (req, res) => {
 const getChats = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const currentProfileId = req.user.profile._id.toString();
+  const paged = req.query.page !== undefined;
+  const page = paged ? Math.max(1, Math.min(10000, Number.parseInt(req.query.page, 10) || 1)) : 1;
+  const limit = paged ? Math.max(1, Math.min(50, Number.parseInt(req.query.limit, 10) || 30)) : null;
   const query = Chat.find({
     $or: [{ user1: req.user.profile._id }, { user2: req.user.profile._id }],
     hiddenBy: { $nin: [req.user.profile._id] },
   });
   // The inbox only needs the latest message; retain the full response for older clients.
   if (req.query.summary === '1') query.slice('messages', -1);
-  const chats = await query
+  query
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
-    .sort({ updatedAt: -1 })
-    .exec();
+    .sort({ updatedAt: -1 });
+  if (paged) query.skip((page - 1) * limit).limit(limit);
+  const chats = await query.exec();
 
   res.json({
     chats: chats.map((chat) => serializeChat(chat, currentProfileId)),
+    ...(paged ? { hasMore: chats.length === limit, page, limit } : {}),
   });
 };
 
