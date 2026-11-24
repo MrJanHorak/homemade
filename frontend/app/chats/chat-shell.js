@@ -28,6 +28,15 @@ const formatTimestamp = (value) => {
   }).format(new Date(value));
 };
 
+const mergeChatMessages = (older = [], newer = []) => {
+  const messages = new Map();
+  [...older, ...newer].forEach((entry) => messages.set(entry.id, entry));
+  return [...messages.values()].sort((a, b) => (
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    || a.id.localeCompare(b.id)
+  ));
+};
+
 const ChatShell = ({ chatId }) => {
   const router = useRouter();
   const [session, setSession] = useState(emptySession);
@@ -36,6 +45,7 @@ const ChatShell = ({ chatId }) => {
   const [inboxHasMore, setInboxHasMore] = useState(false);
   const [isLoadingMoreChats, setIsLoadingMoreChats] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [hidingChatId, setHidingChatId] = useState('');
@@ -86,17 +96,44 @@ const ChatShell = ({ chatId }) => {
     }
 
     if (chatId) {
-      const chatResponse = await fetch(`${API_BASE_URL}/api/chats/${chatId}`, {
+      const chatResponse = await fetch(`${API_BASE_URL}/api/chats/${chatId}?summary=1`, {
         credentials: 'include',
       });
       if (version !== requestVersion.current) return;
 
       if (chatResponse.ok) {
         const chatData = await chatResponse.json();
-        if (version === requestVersion.current) setActiveChat(chatData.chat);
+        if (version === requestVersion.current) {
+          setActiveChat((previous) => ({
+            ...chatData.chat,
+            messages: mergeChatMessages(previous?.id === chatId ? previous.messages : [], chatData.chat.messages),
+          }));
+        }
       } else {
         setActiveChat(null);
       }
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (!chatId || !activeChat?.hasMoreOlder || !activeChat.messages.length || isLoadingOlderMessages) return;
+    setIsLoadingOlderMessages(true);
+    try {
+      const before = activeChat.messages[0].id;
+      const response = await fetch(`${API_BASE_URL}/api/chats/${chatId}/messages?before=${before}&limit=50`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Unable to load older messages.');
+      const payload = await response.json();
+      setActiveChat((previous) => previous?.id === chatId ? {
+        ...previous,
+        messages: mergeChatMessages(payload.messages, previous.messages),
+        hasMoreOlder: Boolean(payload.hasMoreOlder),
+      } : previous);
+    } catch {
+      setError('Unable to load older messages. Try again.');
+    } finally {
+      setIsLoadingOlderMessages(false);
     }
   };
 
@@ -223,7 +260,11 @@ const ChatShell = ({ chatId }) => {
 
       const payload = await response.json();
       requestVersion.current += 1;
-      setActiveChat(payload.chat);
+      setActiveChat((previous) => ({
+        ...payload.chat,
+        messages: mergeChatMessages(previous?.id === chatId ? previous.messages : [], payload.chat.messages),
+        hasMoreOlder: previous?.id === chatId ? previous.hasMoreOlder : false,
+      }));
       setMessage('');
       if (composerRef.current) {
         composerRef.current.style.height = 'auto';
@@ -295,7 +336,11 @@ const ChatShell = ({ chatId }) => {
 
       const payload = await response.json();
       requestVersion.current += 1;
-      setActiveChat(payload.chat);
+      setActiveChat((previous) => ({
+        ...payload.chat,
+        messages: mergeChatMessages(previous?.id === chatId ? previous.messages : [], payload.chat.messages),
+        hasMoreOlder: previous?.id === chatId ? previous.hasMoreOlder : false,
+      }));
       setEditingMessageId(null);
       setEditText('');
     } catch {
@@ -414,6 +459,11 @@ const ChatShell = ({ chatId }) => {
               </header>
 
               <div className='chat-thread__messages'>
+                {activeChat.hasMoreOlder ? (
+                  <button type='button' className='button button--ghost button--compact' onClick={loadOlderMessages} disabled={isLoadingOlderMessages}>
+                    {isLoadingOlderMessages ? 'Loading…' : 'Load older messages'}
+                  </button>
+                ) : null}
                 {activeChat.messages.length ? (
                   activeChat.messages.map((entry) => {
                     const isMine = entry.user?.id === session.user?.profile?.id;

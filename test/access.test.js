@@ -211,7 +211,7 @@ test('hidden project details and interactions are limited to the owner', async (
 
 test('JSON routes enforce chat membership, admin role, draft account, and owner-only deletion', async (t) => {
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: [] };
-  t.mock.method(Chat, 'findById', () => ({ populate() { return this; }, exec: async () => thread }));
+  t.mock.method(Chat, 'findById', () => ({ select() { return this; }, slice() { return this; }, populate() { return this; }, exec: async () => thread }));
   const caller = new Types.ObjectId();
   const del = t.mock.method(Project, 'findOneAndDelete', (query) => ({
     exec: async () => query.owner.equals(owner) ? { _id: projectId } : null,
@@ -270,6 +270,37 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   assert.equal(page.status, 200);
   assert.match(page.output, /"hasMore":false/);
   assert.deepEqual(windows, [['skip', 20], ['limit', 20]]);
+});
+
+test('older chat message pages enforce membership and use a bounded cursor query', async (t) => {
+  const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, hiddenBy: [] };
+  t.mock.method(Chat, 'findById', () => ({
+    select() { return this; },
+    populate() { return this; },
+    exec: async () => thread,
+  }));
+  const aggregate = t.mock.method(Chat, 'aggregate', (pipeline) => ({
+    exec: async () => {
+      assert.equal(pipeline[4].$limit, 51);
+      return [{ _id: new Types.ObjectId(), user: owner, message: 'Earlier', timestamp: new Date() }];
+    },
+  }));
+  t.mock.method(Profile, 'find', () => ({
+    select() { return this; },
+    exec: async () => [{ _id: owner, name: 'Maker', avatar: 'maker.png' }],
+  }));
+
+  assert.equal((await request(apiWithViewer(), 'GET', `/api/chats/${projectId}/messages?before=${visitor}`)).status, 401);
+  const forbidden = await request(apiWithViewer(new Types.ObjectId()), 'GET', `/api/chats/${projectId}/messages?before=${visitor}`);
+  assert.equal(forbidden.status, 403);
+  assert.equal(aggregate.mock.callCount(), 0);
+  const invalidCursor = await request(apiWithViewer(owner), 'GET', `/api/chats/${projectId}/messages?before=bad`);
+  assert.equal(invalidCursor.status, 400);
+  const page = await request(apiWithViewer(owner), 'GET', `/api/chats/${projectId}/messages?before=${visitor}`);
+  assert.equal(page.status, 200);
+  assert.equal(page.headers['cache-control'], 'private, no-store');
+  assert.match(page.output, /Earlier/);
+  assert.deepEqual(aggregate.mock.calls[0].arguments[0][2], { $match: { 'messages._id': { $lt: new Types.ObjectId(visitor) } } });
 });
 
 test('chat writes reject malformed and oversized text without weakening participant or author checks', async (t) => {

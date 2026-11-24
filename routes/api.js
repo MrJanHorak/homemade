@@ -132,6 +132,7 @@ router.post(
 
 router.get('/chats', isApiLoggedIn, handle(apiCtrl.getChats));
 router.get('/chats/:chatId', isApiLoggedIn, handle(apiCtrl.getChat));
+router.get('/chats/:chatId/messages', isApiLoggedIn, handle(apiCtrl.getOlderChatMessages));
 router.post('/chats', isApiLoggedIn, handle(apiCtrl.createChat));
 router.post('/chats/:chatId/hide', isApiLoggedIn, handle(apiCtrl.hideChat));
 router.post('/chats/:chatId/messages', isApiLoggedIn, handle(apiCtrl.addChatMessage));

@@ -1,4 +1,5 @@
 import { Chat } from '../models/chat.js';
+import { Types } from 'mongoose';
 import passport from 'passport';
 import sanitizeHtml from 'sanitize-html';
 import { sanitizeRichText } from '../lib/rich-text.js';
@@ -1427,12 +1428,9 @@ const getChats = async (req, res) => {
 const getChat = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const chat = await Chat.findById(req.params.chatId)
+    .select('user1 user2 hiddenBy')
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
-    .populate({
-      path: 'messages.user',
-      select: 'name avatar',
-    })
     .exec();
 
   if (!chat) {
@@ -1456,9 +1454,82 @@ const getChat = async (req, res) => {
     return;
   }
 
+  if (req.query.summary === '1') {
+    const recent = await Chat.findById(req.params.chatId)
+      .slice('messages', -51)
+      .populate({ path: 'messages.user', select: 'name avatar' })
+      .exec();
+    const serialized = serializeChat(recent, currentProfileId);
+    const hasMoreOlder = serialized.messages.length > 50;
+    serialized.messages = serialized.messages.slice(-50);
+    res.json({ chat: { ...serialized, hasMoreOlder } });
+    return;
+  }
+
+  const completeChat = await Chat.findById(req.params.chatId)
+    .populate({ path: 'messages.user', select: 'name avatar' })
+    .exec();
+
   res.json({
-    chat: serializeChat(chat, currentProfileId),
+    chat: serializeChat(completeChat, currentProfileId),
   });
+};
+
+const getOlderChatMessages = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const chat = await Chat.findById(req.params.chatId)
+    .select('user1 user2 hiddenBy')
+    .populate('user1', 'name avatar')
+    .populate('user2', 'name avatar')
+    .exec();
+  if (!chat) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
+  const currentProfileId = req.user.profile._id.toString();
+  const isParticipant = [chat.user1?._id.toString(), chat.user2?._id.toString()].includes(currentProfileId);
+  if (!isParticipant) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+  if ((chat.hiddenBy || []).some((id) => id.equals(req.user.profile._id))) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
+  const before = req.query.before;
+  if (typeof before !== 'string' || !/^[a-f\d]{24}$/i.test(before)) {
+    res.status(400).json({ error: 'A valid message cursor is required' });
+    return;
+  }
+  const limit = Math.max(1, Math.min(50, Number.parseInt(req.query.limit, 10) || 50));
+  const rows = await Chat.aggregate([
+    { $match: { _id: chat._id } },
+    { $unwind: '$messages' },
+    { $match: { 'messages._id': { $lt: new Types.ObjectId(before) } } },
+    { $sort: { 'messages._id': -1 } },
+    { $limit: limit + 1 },
+    { $replaceRoot: { newRoot: '$messages' } },
+  ]).exec();
+  const hasMoreOlder = rows.length > limit;
+  const page = rows.slice(0, limit).reverse();
+  const senderIds = [...new Set(page.map((message) => message.user?.toString()).filter(Boolean))];
+  const senders = senderIds.length
+    ? await Profile.find({ _id: { $in: senderIds } }).select('name avatar').exec()
+    : [];
+  const senderById = new Map(senders.map((profile) => [profile._id.toString(), profile]));
+  const messages = page.map((message) => ({
+    id: message._id.toString(),
+    user: senderById.has(message.user?.toString())
+      ? { id: message.user.toString(), name: senderById.get(message.user.toString()).name, avatar: senderById.get(message.user.toString()).avatar }
+      : null,
+    message: message.message,
+    timestamp: message.timestamp,
+    edited: Boolean(message.edited),
+    editedAt: message.editedAt || null,
+  }));
+  res.json({ messages, hasMoreOlder, olderCursor: messages[0]?.id || null });
 };
 
 const createChat = async (req, res) => {
@@ -1495,6 +1566,7 @@ const createChat = async (req, res) => {
 
   const chat = await Chat.create({ user1: user1Id, user2: user2Id });
   const populatedChat = await Chat.findById(chat._id)
+    .slice('messages', -50)
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .exec();
@@ -1545,6 +1617,7 @@ const addChatMessage = async (req, res) => {
   await chat.save();
 
   const populatedChat = await Chat.findById(chat._id)
+    .slice('messages', -50)
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .populate({
@@ -1631,6 +1704,7 @@ const editChatMessage = async (req, res) => {
   await chat.save();
 
   const populatedChat = await Chat.findById(chat._id)
+    .slice('messages', -50)
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .populate({ path: 'messages.user', select: 'name avatar' })
@@ -1658,6 +1732,7 @@ export {
   deleteProjectComment,
   deleteProjectDraft,
   getChat,
+  getOlderChatMessages,
   getCategories,
   getAuthProviders,
   getCategorySuggestions,
