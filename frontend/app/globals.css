@@ -22,6 +22,11 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 3px solid #174ea6;
+  outline-offset: 3px;
+}
+
 .skip-link {
   position: fixed;
   top: 8px;
@@ -1321,6 +1326,7 @@ h3 {
 }
 
 .project-form label,
+.project-form .field-label,
 .comment-form label {
   display: grid;
   gap: 8px;
@@ -1883,7 +1889,8 @@ h3 {
 }
 
 .chat-bubble__edit-form textarea:focus {
-  outline: none;
+  outline: 3px solid #174ea6;
+  outline-offset: 2px;
   border-color: rgba(0, 0, 0, 0.42);
 }
 

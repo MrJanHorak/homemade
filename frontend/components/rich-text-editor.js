@@ -9,7 +9,13 @@ import { common, createLowlight } from 'lowlight';
 
 const lowlight = createLowlight(common);
 
-const RichTextEditor = ({ value, onChange, placeholder = 'Enter text...' }) => {
+const RichTextEditor = ({
+  value,
+  onChange,
+  placeholder = 'Enter text...',
+  labelledBy,
+  describedBy,
+}) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -32,6 +38,13 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Enter text...' }) => {
     },
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
+    editorProps: {
+      attributes: {
+        ...(labelledBy ? { 'aria-labelledby': labelledBy } : {}),
+        ...(describedBy ? { 'aria-describedby': describedBy } : {}),
+        'data-placeholder': placeholder,
+      },
+    },
   });
 
   useEffect(() => {

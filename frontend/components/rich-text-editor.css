@@ -69,6 +69,11 @@
   outline: none;
 }
 
+.rich-text-editor__content .ProseMirror:focus-visible {
+  outline: 3px solid #174ea6;
+  outline-offset: 2px;
+}
+
 .rich-text-editor__content .ProseMirror p {
   margin: 0.5em 0;
 }

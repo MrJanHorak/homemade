@@ -1152,13 +1152,17 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
               />
             </label>
 
-            <label>Description</label>
+            <span id='project-description-label' className='field-label'>
+              Project description
+            </span>
             <RichTextEditor
               value={form.description}
               onChange={(html) => updateField('description', html)}
               placeholder='What did you make, why did you make it, and what should people know before starting?'
+              labelledBy='project-description-label'
+              describedBy='project-description-help'
             />
-            <p className='helper-copy'>
+            <p id='project-description-help' className='helper-copy'>
               Supports paragraphs, lists, tables, quotes, and code snippets.
             </p>
           </div>
