@@ -13,7 +13,7 @@ import { ProjectDraft } from '../models/projectDraft.js';
 import { router as apiRouter } from '../routes/api.js';
 import { safeReturnTo } from '../lib/return-to.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
-import { getStoredPictureName } from '../frontend/lib/project-images.js';
+import { getStoredPictureName, resolveInstructionImageIndexes } from '../frontend/lib/project-images.js';
 import { parseInstruction } from '../frontend/lib/project-instructions.js';
 import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } from '../frontend/lib/project-image-selection.js';
 
@@ -338,4 +338,21 @@ test('draft recovery clears unavailable attachments and retains image placement'
   const draft = new ProjectDraft({ owner, buildSteps: saved.buildSteps });
   assert.equal(draft.validateSync(), undefined);
   assert.equal(draft.buildSteps[0].imagePosition, 'before');
+});
+
+test('step image indexes distinguish duplicate and punctuation-heavy filenames while old names still resolve', () => {
+  const pictures = [
+    'https://assets.example.invalid/projects/825d6fb9-1c6b-436f-9b19-c0b891c5fc31-same.png',
+    'https://assets.example.invalid/projects/412d6fb9-1c6b-436f-9b19-c0b891c5fc31-same.png',
+    'https://assets.example.invalid/projects/212d6fb9-1c6b-436f-9b19-c0b891c5fc31-side%2C%20%28left%29.png',
+  ];
+  const stored = sanitizeRichText('Cut: <p>Mark first.</p> (Images: same.png; Indexes: 1, 2; Position: before)');
+  const indexed = parseInstruction(stored);
+  assert.deepEqual(indexed.imageIndexes, [1, 2]);
+  assert.deepEqual(resolveInstructionImageIndexes(indexed, pictures), [1, 2]);
+  assert.equal(indexed.imagePosition, 'before');
+  const legacy = parseInstruction('Cut: Mark first. (Images: same.png; Position: after)');
+  assert.equal(legacy.imageIndexes, null);
+  assert.deepEqual(resolveInstructionImageIndexes(legacy, pictures), [0, 1]);
+  assert.deepEqual(resolveInstructionImageIndexes(parseInstruction('Cut: Work. (Images: ; Indexes: 2, 999; Position: after)'), pictures), [2]);
 });

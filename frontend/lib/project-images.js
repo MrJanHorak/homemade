@@ -13,4 +13,14 @@ const getStoredPictureName = (url, fallback = '') => {
   }
 };
 
-export { getStoredPictureName };
+const resolveInstructionImageIndexes = (instruction, pictures) => {
+  if (instruction.imageIndexes !== null && Array.isArray(instruction.imageIndexes)) {
+    return instruction.imageIndexes.filter((index) => Number.isSafeInteger(index) && index >= 0 && index < pictures.length);
+  }
+  const indexes = (instruction.imageNames || []).flatMap((name) =>
+    pictures.flatMap((url, index) => getStoredPictureName(url).toLowerCase() === name ? [index] : []),
+  );
+  return [...new Set(indexes)];
+};
+
+export { getStoredPictureName, resolveInstructionImageIndexes };

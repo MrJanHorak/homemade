@@ -6,6 +6,7 @@ export const parseInstruction = (instruction) => {
       label: '',
       content: '',
       imageNames: [],
+      imageIndexes: null,
       imagePosition: 'after',
       type: 'instruction',
     };
@@ -18,6 +19,10 @@ export const parseInstruction = (instruction) => {
   const positionMatch = metadataRaw.match(
     /(^|;)\s*position\s*:\s*(before|after)\s*($|;)/i,
   );
+  const indexesMatch = metadataRaw.match(/(^|;)\s*indexes\s*:\s*([\d,\s]*)(?=;|$)/i);
+  const imageIndexes = indexesMatch
+    ? [...new Set(indexesMatch[2].split(',').map((entry) => entry.trim()).filter(Boolean).map(Number).filter(Number.isSafeInteger))]
+    : null;
 
   const imageNames = imagesMatch?.[2]
     ? imagesMatch[2]
@@ -45,6 +50,7 @@ export const parseInstruction = (instruction) => {
       label: withoutType.slice(0, separator).trim(),
       content: withoutType.slice(separator + 1).trim(),
       imageNames,
+      imageIndexes,
       imagePosition,
       type,
     };
@@ -54,6 +60,7 @@ export const parseInstruction = (instruction) => {
     label: '',
     content: withoutType,
     imageNames,
+    imageIndexes,
     imagePosition,
     type,
   };

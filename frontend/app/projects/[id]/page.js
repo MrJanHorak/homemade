@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import ProjectDetailView from './project-detail-view';
 import { fetchForViewer } from '@/lib/server-api';
-import { getStoredPictureName } from '@/lib/project-images';
+import { resolveInstructionImageIndexes } from '@/lib/project-images';
 import { parseInstruction } from '@/lib/project-instructions';
 import { sanitizeRichText } from '../../../../lib/rich-text.js';
 
@@ -20,25 +20,10 @@ const ProjectDetailPage = async ({ params }) => {
   }
 
   const { project } = await response.json();
-  const picturesByName = (project.buildPictures || []).reduce((map, url) => {
-    const name = getStoredPictureName(url).toLowerCase();
-
-    if (!name) {
-      return map;
-    }
-
-    if (!map.has(name)) {
-      map.set(name, []);
-    }
-
-    map.get(name).push(url);
-    return map;
-  }, new Map());
+  const pictures = project.buildPictures || [];
   const parsedInstructions = (project.buildInstructions || []).map((entry) => {
     const parsed = parseInstruction(entry);
-    const stepImages = parsed.imageNames.flatMap(
-      (imageName) => picturesByName.get(imageName) || [],
-    );
+    const stepImages = resolveInstructionImageIndexes(parsed, pictures).map((index) => pictures[index]);
 
     return {
       ...parsed,

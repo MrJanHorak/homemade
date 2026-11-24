@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } from '@/lib/project-image-selection';
 import fallbackCategories from '@/lib/categories';
 import { API_BASE_URL } from '@/lib/api';
-import { getStoredPictureName } from '@/lib/project-images';
+import { getStoredPictureName, resolveInstructionImageIndexes } from '@/lib/project-images';
 import { parseInstruction } from '@/lib/project-instructions';
 
 const RichTextEditor = dynamic(() => import('@/components/rich-text-editor'), {
@@ -33,7 +33,6 @@ const createEmptyStep = () => ({
 });
 
 const buildStepsFromInstructions = (instructions, pictures) => {
-  const pictureNames = pictures.map((url) => getStoredPictureName(url).toLowerCase());
   const steps = (instructions || []).filter((instruction) => instruction.trim()).map((instruction, index) => {
     const parsed = parseInstruction(instruction);
     return {
@@ -41,9 +40,7 @@ const buildStepsFromInstructions = (instructions, pictures) => {
       title: parsed.label || `Step ${index + 1}`,
       content: parsed.content,
       imagePosition: parsed.imagePosition,
-      imageIndexes: pictureNames.flatMap((name, pictureIndex) =>
-        parsed.imageNames.includes(name) ? [pictureIndex] : [],
-      ),
+      imageIndexes: resolveInstructionImageIndexes(parsed, pictures),
     };
   });
   return steps.length ? steps : [createEmptyStep()];
@@ -855,11 +852,10 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             return '';
           }
 
-          const imageLabels = step.imageIndexes
-            .map((imageIndex) => stepImageEntries[imageIndex]?.name)
-            .filter(Boolean);
-          const imageSuffix = imageLabels.length
-            ? ` (Images: ${imageLabels.join(', ')}; Position: ${step.imagePosition || 'after'})`
+          const imageIndexes = [...new Set(step.imageIndexes)].filter((imageIndex) => Number.isInteger(imageIndex) && imageIndex >= 0 && imageIndex < stepImageEntries.length);
+          const imageLabels = imageIndexes.map((imageIndex) => stepImageEntries[imageIndex].name).filter((name) => name && !/[,;()]/.test(name));
+          const imageSuffix = imageIndexes.length
+            ? ` (Images: ${imageLabels.join(', ')}; Indexes: ${imageIndexes.join(', ')}; Position: ${step.imagePosition || 'after'})`
             : '';
           const header = cleanedTitle || `Step ${index + 1}`;
           const typePrefix =
