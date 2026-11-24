@@ -256,6 +256,13 @@ const canViewProject = (project, profileId) =>
   project?.visible === true ||
   Boolean(profileId && project?.owner?.equals(profileId));
 
+const areProfilesBlocked = async (firstId, secondId) => Boolean(await Profile.exists({
+  $or: [
+    { _id: firstId, blockedProfiles: secondId },
+    { _id: secondId, blockedProfiles: firstId },
+  ],
+}));
+
 const PROJECT_SORT_OPTIONS = new Set([
   'latest',
   'newest',
@@ -1313,6 +1320,9 @@ const getProfile = async (req, res) => {
   }
 
   const isSelf = Boolean(req.user?.profile?._id?.equals(profile._id));
+  const viewerId = req.user?.profile?._id;
+  const blockedByViewer = Boolean(viewerId && !isSelf && await Profile.exists({ _id: viewerId, blockedProfiles: profile._id }));
+  const viewerBlocked = Boolean(viewerId && !isSelf && profile.blockedProfiles?.some((id) => id.equals(viewerId)));
   const filter = { owner: profile._id };
   if (!isSelf) filter.visible = true;
   const projects = await Project.find(filter)
@@ -1325,7 +1335,44 @@ const getProfile = async (req, res) => {
     }),
     projects: projects.map((project) => serializeProject(project)),
     isSelf,
+    blockedByViewer,
+    canStartChat: !isSelf && !blockedByViewer && !viewerBlocked,
+    canBlock: Boolean(viewerId && !isSelf),
   });
+};
+
+const blockProfile = async (req, res) => {
+  const viewerId = req.user.profile._id;
+  const targetId = new Types.ObjectId(req.params.id);
+  if (viewerId.equals(targetId)) {
+    res.status(400).json({ error: 'You cannot block your own profile' });
+    return;
+  }
+  if (!(await Profile.exists({ _id: targetId }))) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+  const result = await Profile.updateOne({ _id: viewerId }, { $addToSet: { blockedProfiles: targetId } }).exec();
+  if (!result.matchedCount) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+  res.json({ blocked: true });
+};
+
+const unblockProfile = async (req, res) => {
+  const viewerId = req.user.profile._id;
+  const targetId = new Types.ObjectId(req.params.id);
+  if (viewerId.equals(targetId)) {
+    res.status(400).json({ error: 'You cannot unblock your own profile' });
+    return;
+  }
+  const result = await Profile.updateOne({ _id: viewerId }, { $pull: { blockedProfiles: targetId } }).exec();
+  if (!result.matchedCount) {
+    res.status(404).json({ error: 'Profile not found' });
+    return;
+  }
+  res.json({ blocked: false });
 };
 
 const updateProfile = async (req, res) => {
@@ -1403,13 +1450,26 @@ const searchProjects = async (req, res) => {
 
 const getChats = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
-  const currentProfileId = req.user.profile._id.toString();
+  const viewerId = req.user.profile._id;
+  const currentProfileId = viewerId.toString();
+  const [viewerProfile, profilesBlockingViewer] = await Promise.all([
+    Profile.findById(viewerId).select('blockedProfiles').exec(),
+    Profile.find({ blockedProfiles: viewerId }).select('_id').exec(),
+  ]);
+  const blockedIds = [
+    ...(viewerProfile?.blockedProfiles || []),
+    ...profilesBlockingViewer.map((profile) => profile._id),
+  ];
   const paged = req.query.page !== undefined;
   const page = paged ? Math.max(1, Math.min(10000, Number.parseInt(req.query.page, 10) || 1)) : 1;
   const limit = paged ? Math.max(1, Math.min(50, Number.parseInt(req.query.limit, 10) || 30)) : null;
   const query = Chat.find({
-    $or: [{ user1: req.user.profile._id }, { user2: req.user.profile._id }],
-    hiddenBy: { $nin: [req.user.profile._id] },
+    $or: [{ user1: viewerId }, { user2: viewerId }],
+    hiddenBy: { $nin: [viewerId] },
+    $nor: [
+      { user1: viewerId, user2: { $in: blockedIds } },
+      { user2: viewerId, user1: { $in: blockedIds } },
+    ],
   });
   // The inbox only needs the latest message; retain the full response for older clients.
   if (req.query.summary === '1') query.slice('messages', -1);
@@ -1451,6 +1511,11 @@ const getChat = async (req, res) => {
   }
 
   if ((chat.hiddenBy || []).some((id) => id.equals(req.user.profile._id))) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+  const otherProfileId = chat.user1?._id.toString() === currentProfileId ? chat.user2?._id : chat.user1?._id;
+  if (await areProfilesBlocked(req.user.profile._id, otherProfileId)) {
     res.status(404).json({ error: 'Chat not found' });
     return;
   }
@@ -1498,6 +1563,11 @@ const getOlderChatMessages = async (req, res) => {
     res.status(404).json({ error: 'Chat not found' });
     return;
   }
+  const otherProfileId = chat.user1?._id.toString() === currentProfileId ? chat.user2?._id : chat.user1?._id;
+  if (await areProfilesBlocked(req.user.profile._id, otherProfileId)) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
 
   const before = req.query.before;
   if (typeof before !== 'string' || !/^[a-f\d]{24}$/i.test(before)) {
@@ -1542,6 +1612,11 @@ const reportChatMessage = async (req, res) => {
   const reporterId = req.user.profile._id;
   if (!chat.user1?.equals(reporterId) && !chat.user2?.equals(reporterId)) {
     res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+  const otherProfileId = chat.user1?.equals(reporterId) ? chat.user2 : chat.user1;
+  if (await areProfilesBlocked(reporterId, otherProfileId)) {
+    res.status(404).json({ error: 'Chat not found' });
     return;
   }
   if ((chat.hiddenBy || []).some((id) => id.equals(reporterId))) {
@@ -1650,6 +1725,11 @@ const createChat = async (req, res) => {
     return;
   }
 
+  if (await areProfilesBlocked(user1Id, user2Id)) {
+    res.status(403).json({ error: 'Messaging is unavailable for this maker' });
+    return;
+  }
+
   const existingChat = await Chat.findOne({
     $or: [
       { user1: user1Id, user2: user2Id },
@@ -1695,6 +1775,12 @@ const addChatMessage = async (req, res) => {
 
   if (!isParticipant) {
     res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const chatPeerId = chat.user1?.equals(currentProfileId) ? chat.user2 : chat.user1;
+  if (await areProfilesBlocked(currentProfileId, chatPeerId)) {
+    res.status(404).json({ error: 'Chat not found' });
     return;
   }
 
@@ -1783,6 +1869,12 @@ const editChatMessage = async (req, res) => {
     return;
   }
 
+  const otherProfileId = chat.user1?.equals(currentProfileId) ? chat.user2 : chat.user1;
+  if (await areProfilesBlocked(currentProfileId, otherProfileId)) {
+    res.status(404).json({ error: 'Chat not found' });
+    return;
+  }
+
   const msg = chat.messages.id(req.params.messageId);
 
   if (!msg) {
@@ -1831,6 +1923,8 @@ export {
   reportChatMessage,
   getChatReports,
   updateChatReport,
+  blockProfile,
+  unblockProfile,
   createChat,
   editChatMessage,
   hideChat,

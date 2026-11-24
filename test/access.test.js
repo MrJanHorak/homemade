@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage, blockProfile, unblockProfile } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { ChatReport } from '../models/chatReport.js';
@@ -219,6 +219,8 @@ test('JSON routes enforce chat membership, admin role, draft account, and owner-
   }));
   const wrongProfile = { _id: owner, name: 'Owner' };
   const profileFind = t.mock.method(Profile, 'findById', () => ({ exec: async () => wrongProfile }));
+  let pairBlocked = false;
+  t.mock.method(Profile, 'exists', async () => pairBlocked ? { _id: projectId } : null);
 
   assert.equal((await request(apiWithViewer(), 'GET', `/api/chats/${projectId}`)).status, 401);
   assert.equal((await request(apiWithViewer(caller), 'GET', `/api/chats/${projectId}`)).status, 403);
@@ -228,6 +230,8 @@ test('JSON routes enforce chat membership, admin role, draft account, and owner-
   const otherView = await request(apiWithViewer(visitor), 'GET', `/api/chats/${projectId}`);
   assert.equal(otherView.status, 200);
   assert.equal(otherView.headers['cache-control'], 'private, no-store');
+  pairBlocked = true;
+  assert.equal((await request(apiWithViewer(visitor), 'GET', `/api/chats/${projectId}`)).status, 404);
   assert.equal((await request(apiWithViewer(visitor), 'GET', '/api/admin/category-suggestions')).status, 403);
   assert.equal((await request(apiWithViewer(visitor), 'PUT', `/api/profiles/${owner}`)).status, 403);
   assert.equal(profileFind.mock.callCount(), 1);
@@ -243,6 +247,9 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   const newMessage = { _id: new Types.ObjectId(), message: 'latest message' };
   const slices = [];
   const windows = [];
+  const blockedMaker = new Types.ObjectId();
+  t.mock.method(Profile, 'findById', () => ({ select() { return this; }, exec: async () => ({ blockedProfiles: [blockedMaker] }) }));
+  t.mock.method(Profile, 'find', () => ({ select() { return this; }, exec: async () => [] }));
   const find = t.mock.method(Chat, 'find', () => {
     let summary = false;
     return {
@@ -264,6 +271,7 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   const filter = find.mock.calls[0].arguments[0];
   assert.ok(filter.hiddenBy.$nin[0].equals(owner));
   assert.ok(filter.$or[0].user1.equals(owner));
+  assert.ok(filter.$nor[0].user2.$in.some((id) => id.equals(blockedMaker)));
   const legacy = await request(apiWithViewer(owner), 'GET', '/api/chats');
   assert.match(legacy.output, /older message/);
   assert.equal(slices.length, 1);
@@ -290,6 +298,7 @@ test('older chat message pages enforce membership and use a bounded cursor query
     select() { return this; },
     exec: async () => [{ _id: owner, name: 'Maker', avatar: 'maker.png' }],
   }));
+  t.mock.method(Profile, 'exists', async () => null);
 
   assert.equal((await request(apiWithViewer(), 'GET', `/api/chats/${projectId}/messages?before=${visitor}`)).status, 401);
   const forbidden = await request(apiWithViewer(new Types.ObjectId()), 'GET', `/api/chats/${projectId}/messages?before=${visitor}`);
@@ -308,6 +317,7 @@ test('chat reports can only target another participant message and moderators al
   const thread = new Chat({ _id: projectId, user1: owner, user2: visitor, messages: [{ user: visitor, message: 'Reported message' }] });
   t.mock.method(Chat, 'findById', () => ({ exec: async () => thread }));
   const create = t.mock.method(ChatReport, 'create', async (record) => ({ _id: projectId, ...record }));
+  t.mock.method(Profile, 'exists', async () => null);
   const invoke = async (viewer, body) => {
     const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(payload) { this.body = payload; return this; } };
     await reportChatMessage({ params: { chatId: projectId.toString() }, user: { profile: { _id: viewer } }, body }, res);
@@ -331,11 +341,34 @@ test('chat reports can only target another participant message and moderators al
   assert.equal(find.mock.callCount(), 1);
 });
 
+test('blocking is reversible, rejects self-blocking, and updates only the signed-in profile', async (t) => {
+  const exists = t.mock.method(Profile, 'exists', async (filter) => filter._id?.equals(visitor) ? { _id: visitor } : null);
+  const updates = [];
+  t.mock.method(Profile, 'updateOne', (filter, update) => {
+    updates.push({ filter, update });
+    return { exec: async () => ({ matchedCount: 1 }) };
+  });
+  const invoke = async (handler, targetId) => {
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(payload) { this.body = payload; return this; } };
+    await handler({ params: { id: targetId.toString() }, user: { profile: { _id: owner } } }, res);
+    return res;
+  };
+  assert.equal((await invoke(blockProfile, owner)).statusCode, 400);
+  assert.equal((await invoke(blockProfile, new Types.ObjectId())).statusCode, 404);
+  assert.deepEqual((await invoke(blockProfile, visitor)).body, { blocked: true });
+  assert.deepEqual(updates[0].update, { $addToSet: { blockedProfiles: visitor } });
+  assert.deepEqual((await invoke(unblockProfile, visitor)).body, { blocked: false });
+  assert.deepEqual(updates[1].update, { $pull: { blockedProfiles: visitor } });
+  assert.equal(exists.mock.callCount(), 2);
+  assert.equal((await request(apiWithViewer(), 'POST', `/api/profiles/${visitor}/block`)).status, 401);
+});
+
 test('chat writes reject malformed and oversized text without weakening participant or author checks', async (t) => {
   const chat = new Chat({ _id: projectId, user1: owner, user2: visitor, messages: [{ user: owner, message: 'Original' }] });
   const messageId = chat.messages[0]._id;
   t.mock.method(Chat, 'findById', () => ({ exec: async () => chat }));
   const save = t.mock.method(chat, 'save', async () => { throw new Error('Unexpected write'); });
+  t.mock.method(Profile, 'exists', async () => null);
   const invoke = async (handler, viewer, message) => {
     const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
     await handler({ params: { chatId: String(projectId), messageId: String(messageId) }, user: { profile: { _id: viewer } }, body: { message } }, res);
@@ -444,7 +477,11 @@ test('moderation pagination filters and sorts across the queue and remains admin
 });
 
 test('chat creation requires another existing profile and reuses an existing conversation', async (t) => {
-  const exists = t.mock.method(Profile, 'exists', async ({ _id }) => _id === visitor.toString());
+  let pairBlocked = false;
+  const exists = t.mock.method(Profile, 'exists', async (filter) => {
+    if (filter.$or) return pairBlocked;
+    return filter._id === visitor.toString();
+  });
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: [] };
   const find = t.mock.method(Chat, 'findOne', () => ({
     populate() { return this; },
@@ -468,6 +505,9 @@ test('chat creation requires another existing profile and reuses an existing con
   assert.equal(exists.mock.callCount(), 0);
   assert.equal((await invoke(new Types.ObjectId().toString())).statusCode, 404);
   assert.equal(find.mock.callCount(), 0);
+  pairBlocked = true;
+  assert.equal((await invoke(visitor.toString())).statusCode, 403);
+  pairBlocked = false;
   const response = await invoke(visitor.toString());
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.chat.id, projectId.toString());

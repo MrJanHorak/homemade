@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import StartChatButton from './start-chat-button';
+import BlockMakerButton from './block-maker-button';
 import ProjectCard from '@/components/project-card';
 import { fetchForViewer } from '@/lib/server-api';
 
@@ -31,7 +32,7 @@ const ProfileDetailPage = async ({ params }) => {
     throw new Error('Unable to load profile');
   }
 
-  const { profile, projects, isSelf } = await response.json();
+  const { profile, projects, isSelf, blockedByViewer, canStartChat, canBlock } = await response.json();
 
   return (
     <div className='page-stack'>
@@ -102,7 +103,10 @@ const ProfileDetailPage = async ({ params }) => {
               Edit profile
             </Link>
           ) : (
-            <StartChatButton profileId={profile.id} />
+            <>
+              {canStartChat ? <StartChatButton profileId={profile.id} /> : <p>Messaging is unavailable with this maker.</p>}
+              {canBlock ? <BlockMakerButton profileId={profile.id} profileName={profile.name} initiallyBlocked={blockedByViewer} /> : null}
+            </>
           )}
 
           <div className='social-links'>

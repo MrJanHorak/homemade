@@ -100,6 +100,8 @@ router.get(
   handle(apiCtrl.getSavedProjects),
 );
 router.get('/profiles/:id', handle(apiCtrl.getProfile));
+router.post('/profiles/:id/block', isApiLoggedIn, handle(apiCtrl.blockProfile));
+router.delete('/profiles/:id/block', isApiLoggedIn, handle(apiCtrl.unblockProfile));
 router.put(
   '/profiles/:id',
   isApiLoggedIn,

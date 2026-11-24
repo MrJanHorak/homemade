@@ -10,6 +10,7 @@ const profileSchema = new Schema(
     projects: [{ type: Schema.Types.ObjectId, ref: 'Project' }],
     likes: [{ type: Schema.Types.ObjectId, ref: 'Project' }],
     follows: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
+    blockedProfiles: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
     comments: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
     saves: [{ type: Schema.Types.ObjectId, ref: 'Project' }],
     chats: [{ type: Schema.Types.ObjectId, ref: 'Chat' }],
@@ -85,6 +86,8 @@ const profileSchema = new Schema(
     timestamps: true,
   }
 );
+
+profileSchema.index({ blockedProfiles: 1 });
 
 const Profile = mongoose.model('Profile', profileSchema);
 
