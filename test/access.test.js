@@ -14,6 +14,7 @@ import { safeReturnTo } from '../lib/return-to.js';
 import { sanitizeRichText } from '../lib/rich-text.js';
 import { getStoredPictureName } from '../frontend/lib/project-images.js';
 import { parseInstruction } from '../frontend/lib/project-instructions.js';
+import { moveSelectedImage, removeSelectedImage } from '../frontend/lib/project-image-selection.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -302,4 +303,20 @@ test('sign-in return paths, rich text, and historical step image names work offl
   assert.deepEqual(step.imageNames, [getStoredPictureName(image)]);
   assert.equal(step.imagePosition, 'before');
   assert.equal(parseInstruction('<p>Tip: mark first.</p>').content, '<p>Tip: mark first.</p>');
+});
+
+test('moving and removing new images preserves step attachments to existing and selected images', () => {
+  const form = {
+    buildPictures: ['first', 'second', 'third'],
+    buildSteps: [{ imageIndexes: [0, 2, 4] }, { imageIndexes: [3] }],
+  };
+  const moved = moveSelectedImage(form, 2, 0, 2);
+  assert.deepEqual(moved.buildPictures, ['second', 'third', 'first']);
+  assert.deepEqual(moved.buildSteps.map((step) => step.imageIndexes), [[0, 4, 3], [2]]);
+  const removed = removeSelectedImage(moved, 2, 1);
+  assert.deepEqual(removed.buildPictures, ['second', 'first']);
+  assert.deepEqual(removed.buildSteps.map((step) => step.imageIndexes), [[0, 3], [2]]);
+  assert.deepEqual(form.buildPictures, ['first', 'second', 'third']);
+  assert.equal(moveSelectedImage(form, 2, 0, -1), form);
+  assert.equal(removeSelectedImage(form, 2, 3), form);
 });

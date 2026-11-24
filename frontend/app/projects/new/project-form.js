@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { moveSelectedImage, removeSelectedImage } from '@/lib/project-image-selection';
 import fallbackCategories from '@/lib/categories';
 import { API_BASE_URL } from '@/lib/api';
 import { getStoredPictureName } from '@/lib/project-images';
@@ -122,6 +123,10 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
     visible: true,
   });
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [imageStatus, setImageStatus] = useState('');
+  const imageCardRefs = useRef([]);
+  const imageInputRef = useRef(null);
+  const pendingImageFocus = useRef(null);
   const [stepImageFilters, setStepImageFilters] = useState({});
 
   const existingImageEntries = useMemo(
@@ -431,6 +436,13 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
   }, [form.buildPictures]);
 
   useEffect(() => {
+    if (pendingImageFocus.current === null) return;
+    const index = pendingImageFocus.current;
+    pendingImageFocus.current = null;
+    (imageCardRefs.current[index] || imageInputRef.current)?.focus();
+  }, [imagePreviews]);
+
+  useEffect(() => {
     if (isEditMode || isLoading || !localDraftKey || hasInitializedDraft) return;
 
     let active = true;
@@ -659,6 +671,20 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
       ...current,
       buildPictures: [...current.buildPictures, ...nextFiles],
     }));
+  };
+
+  const removeNewImage = (index) => {
+    const file = form.buildPictures[index];
+    pendingImageFocus.current = Math.min(index, form.buildPictures.length - 2);
+    setImageStatus(`${file.name} removed from new images and its step attachments.`);
+    setForm((current) => removeSelectedImage(current, existingPictures.length, index));
+  };
+
+  const moveNewImage = (from, to) => {
+    const file = form.buildPictures[from];
+    pendingImageFocus.current = to;
+    setImageStatus(`${file.name} moved to position ${to + 1} of ${form.buildPictures.length}.`);
+    setForm((current) => moveSelectedImage(current, existingPictures.length, from, to));
   };
 
   const updateStepField = (stepIndex, field, value) => {
@@ -1268,6 +1294,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             <label>
               {isEditMode ? 'Add more pictures' : 'Image library'}
               <input
+                ref={imageInputRef}
                 type='file'
                 multiple
                 accept='image/jpeg,image/png'
@@ -1290,9 +1317,11 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
             ) : null}
 
             {imagePreviews.length ? (
+              <>
+              <h3>New images</h3>
               <div className='project-media-library'>
                 {imagePreviews.map((preview, imageIndex) => (
-                  <div key={`${preview.name}-${imageIndex}`}>
+                  <div key={`${preview.name}-${imageIndex}`} tabIndex={-1} ref={(element) => { imageCardRefs.current[imageIndex] = element; }}>
                     <img
                       src={preview.url}
                       alt={preview.name}
@@ -1301,10 +1330,17 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                     <p className='project-media-library__name'>
                       {preview.name}
                     </p>
+                    <div className='page-actions'>
+                      <button type='button' className='button button--ghost button--compact' onClick={() => moveNewImage(imageIndex, imageIndex - 1)} disabled={imageIndex === 0} aria-label={`Move ${preview.name} earlier`}>Earlier</button>
+                      <button type='button' className='button button--ghost button--compact' onClick={() => moveNewImage(imageIndex, imageIndex + 1)} disabled={imageIndex === imagePreviews.length - 1} aria-label={`Move ${preview.name} later`}>Later</button>
+                      <button type='button' className='button button--ghost button--compact' onClick={() => removeNewImage(imageIndex)} aria-label={`Remove ${preview.name}`}>Remove</button>
+                    </div>
                   </div>
                 ))}
               </div>
+              </>
             ) : null}
+            <p className='helper-copy' role='status'>{imageStatus}</p>
 
             <label>
               Keep project visible
