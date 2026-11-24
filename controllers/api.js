@@ -2,6 +2,7 @@ import { Chat } from '../models/chat.js';
 import passport from 'passport';
 import sanitizeHtml from 'sanitize-html';
 import { sanitizeRichText } from '../lib/rich-text.js';
+import { validateChatMessage } from '../lib/chat-message.js';
 import { authDebugLinksEnabled } from '../lib/auth-email.js';
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
@@ -1498,10 +1499,9 @@ const addChatMessage = async (req, res) => {
     return;
   }
 
-  const message = req.body.message?.trim();
-
-  if (!message) {
-    res.status(400).json({ error: 'Message is required' });
+  const { message, error } = validateChatMessage(req.body?.message);
+  if (error) {
+    res.status(400).json({ error });
     return;
   }
 
@@ -1595,10 +1595,9 @@ const editChatMessage = async (req, res) => {
     return;
   }
 
-  const newText = req.body.message?.trim();
-
-  if (!newText) {
-    res.status(400).json({ error: 'Message is required' });
+  const { message: newText, error } = validateChatMessage(req.body?.message);
+  if (error) {
+    res.status(400).json({ error });
     return;
   }
 

@@ -4,7 +4,7 @@ import { Duplex } from 'node:stream';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, saveProjectDraft } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, saveProjectDraft, addChatMessage, editChatMessage } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { Profile } from '../models/profile.js';
@@ -16,6 +16,7 @@ import { sanitizeRichText } from '../lib/rich-text.js';
 import { getStoredPictureName, resolveInstructionImageIndexes } from '../frontend/lib/project-images.js';
 import { parseInstruction } from '../frontend/lib/project-instructions.js';
 import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } from '../frontend/lib/project-image-selection.js';
+import { MAX_CHAT_MESSAGE_LENGTH, validateChatMessage } from '../lib/chat-message.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -163,6 +164,28 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   const legacy = await request(apiWithViewer(owner), 'GET', '/api/chats');
   assert.match(legacy.output, /older message/);
   assert.equal(slices.length, 1);
+});
+
+test('chat writes reject malformed and oversized text without weakening participant or author checks', async (t) => {
+  const chat = new Chat({ _id: projectId, user1: owner, user2: visitor, messages: [{ user: owner, message: 'Original' }] });
+  const messageId = chat.messages[0]._id;
+  t.mock.method(Chat, 'findById', () => ({ exec: async () => chat }));
+  const save = t.mock.method(chat, 'save', async () => { throw new Error('Unexpected write'); });
+  const invoke = async (handler, viewer, message) => {
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await handler({ params: { chatId: String(projectId), messageId: String(messageId) }, user: { profile: { _id: viewer } }, body: { message } }, res);
+    return res;
+  };
+  for (const message of [null, {}, [], 1, '   ', 'x'.repeat(MAX_CHAT_MESSAGE_LENGTH + 1)]) {
+    assert.equal((await invoke(addChatMessage, owner, message)).statusCode, 400);
+    assert.equal((await invoke(editChatMessage, owner, message)).statusCode, 400);
+  }
+  assert.equal((await invoke(addChatMessage, new Types.ObjectId(), 'hello')).statusCode, 403);
+  assert.equal((await invoke(editChatMessage, visitor, 'hello')).statusCode, 403);
+  assert.equal(save.mock.callCount(), 0);
+  assert.deepEqual(validateChatMessage('  hello  '), { message: 'hello' });
+  assert.equal(validateChatMessage('x'.repeat(MAX_CHAT_MESSAGE_LENGTH)).message.length, MAX_CHAT_MESSAGE_LENGTH);
+  assert.equal(chat.messages[0].message, 'Original');
 });
 
 test('rating lookup requires a viewer, respects visibility, and returns only that viewer’s score', async (t) => {

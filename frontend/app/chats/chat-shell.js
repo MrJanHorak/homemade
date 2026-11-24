@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
+import { MAX_CHAT_MESSAGE_LENGTH } from '../../../lib/chat-message.js';
 
 const emptySession = {
   authenticated: false,
@@ -39,6 +40,7 @@ const ChatShell = ({ chatId }) => {
   const [error, setError] = useState('');
   const [retryLoad, setRetryLoad] = useState(0);
   const [editingMessageId, setEditingMessageId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const composerRef = useRef(null);
   const requestVersion = useRef(0);
@@ -160,7 +162,7 @@ const ChatShell = ({ chatId }) => {
 
   const handleSendMessage = async (event) => {
     event.preventDefault();
-    if (!message.trim() || !chatId || isSending) {
+    if (!message.trim() || !chatId || isSending || isEditing) {
       return;
     }
 
@@ -234,10 +236,12 @@ const ChatShell = ({ chatId }) => {
   };
 
   const handleEditSave = async (messageId) => {
-    if (!editText.trim() || !chatId) {
+    if (!editText.trim() || !chatId || isEditing || isSending) {
       return;
     }
 
+    setIsEditing(true);
+    setError('');
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/chats/${chatId}/messages/${messageId}`,
@@ -262,6 +266,8 @@ const ChatShell = ({ chatId }) => {
       setEditText('');
     } catch {
       setError('Unable to edit message');
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -395,11 +401,14 @@ const ChatShell = ({ chatId }) => {
                               onChange={(e) => setEditText(e.target.value)}
                               autoFocus
                               aria-label='Edit message'
+                              maxLength={MAX_CHAT_MESSAGE_LENGTH}
+                              disabled={isEditing}
                             />
                             <div className='chat-bubble__edit-actions'>
                               <button
                                 type='submit'
                                 className='button button--small'
+                                disabled={isEditing}
                               >
                                 Save
                               </button>
@@ -407,6 +416,7 @@ const ChatShell = ({ chatId }) => {
                                 type='button'
                                 className='button button--ghost button--small'
                                 onClick={handleEditCancel}
+                                disabled={isEditing}
                               >
                                 Cancel
                               </button>
@@ -423,6 +433,7 @@ const ChatShell = ({ chatId }) => {
                             {isMine ? (
                               <button
                                 className='chat-bubble__edit-btn'
+                                disabled={isEditing || isSending}
                                 onClick={() => handleEditStart(entry)}
                                 aria-label='Edit message'
                                 title='Edit message'
@@ -465,22 +476,23 @@ const ChatShell = ({ chatId }) => {
                   ref={composerRef}
                   rows={1}
                   value={message}
-                  disabled={isSending}
+                  disabled={isSending || isEditing}
                   onChange={(event) => setMessage(event.target.value)}
                   onInput={(event) => {
                     event.target.style.height = 'auto';
                     event.target.style.height = `${event.target.scrollHeight}px`;
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
+                    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       handleSendMessage(event);
                     }
                   }}
                   placeholder='Type a message...'
                   aria-label='Message'
+                  maxLength={MAX_CHAT_MESSAGE_LENGTH}
                 />
-                <button type='submit' className='button' disabled={isSending}>
+                <button type='submit' className='button' disabled={isSending || isEditing}>
                   {isSending ? 'Sending...' : 'Send'}
                 </button>
               </form>
