@@ -657,6 +657,10 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
     const nextFiles = Array.from(event.target.files || []);
     event.target.value = '';
     if (!nextFiles.length) return;
+    if (nextFiles.some((file) => file.type && !['image/jpeg', 'image/png'].includes(file.type))) {
+      setError('Choose JPEG or PNG images.');
+      return;
+    }
     if (nextFiles.some((file) => file.size > 5 * 1024 * 1024)) {
       setError('Each image must be 5 MB or smaller.');
       return;
@@ -1308,6 +1312,7 @@ const ProjectForm = ({ mode = 'create', projectId = null, justSavedHidden = fals
                 ? 'New uploads are appended to your existing project images.'
                 : 'Upload JPG or PNG images once, then place them inside individual build steps.'}
             </p>
+            <p className='helper-copy'>Each image must be 5 MB or smaller, up to 10,000 pixels per side and 40 megapixels.</p>
             <p className='helper-copy'>
               Attach images per step below by clicking image tiles in each step.
             </p>

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as apiCtrl from '../controllers/api.js';
 import { isApiAdmin, isApiLoggedIn } from '../middleware/middleware.js';
 import multer from 'multer';
+import { validateImageDimensions } from '../lib/image-dimensions.js';
 
 const router = Router();
 const storage = multer.memoryStorage();
@@ -19,14 +20,11 @@ const imageUpload = multer({
 const upload = imageUpload.array('buildPictures', 12);
 const profileUpload = imageUpload.single('avatar');
 
-const pngSignature = Buffer.from('89504e470d0a1a0a', 'hex');
-const jpegSignature = Buffer.from('ffd8ff', 'hex');
 const validateUploadedImages = (req, res, next) => {
   const files = req.files || (req.file ? [req.file] : []);
   for (const file of files) {
-    const signature = file.mimetype === 'image/png' ? pngSignature : jpegSignature;
-    if (!file.buffer.subarray(0, signature.length).equals(signature)) {
-      res.status(415).json({ error: 'Upload a valid JPEG or PNG image.' });
+    if (!validateImageDimensions(file.buffer, file.mimetype)) {
+      res.status(415).json({ error: 'Upload a JPEG or PNG up to 10,000 pixels per side and 40 megapixels.' });
       return;
     }
   }

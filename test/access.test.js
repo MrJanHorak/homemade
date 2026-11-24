@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Duplex } from 'node:stream';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
@@ -21,6 +22,7 @@ import { createAuthRateLimit } from '../middleware/authRateLimit.js';
 import { router as authRouter } from '../routes/auth.js';
 import { removeTokenFromAddress } from '../frontend/lib/auth-token.js';
 import { uploadImages } from '../services/s3Service.js';
+import { validateImageDimensions } from '../lib/image-dimensions.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -156,6 +158,24 @@ test('failed upload batches clean all attempted objects before propagating the e
   const urls = await uploadImages('projects', [files[0]], { client: successClient, createId: () => 'test-id' });
   assert.equal(urls.length, 1);
   assert.deepEqual(successOperations, ['PutObjectCommand']);
+});
+
+test('image header checks reject malformed, mismatched, and oversized dimensions', () => {
+  const png = readFileSync(new URL('../public/images/auth/google/siwg_dark_normal.png', import.meta.url));
+  assert.equal(validateImageDimensions(png, 'image/png'), true);
+  assert.equal(validateImageDimensions(png, 'image/jpeg'), false);
+  assert.equal(validateImageDimensions(png.subarray(0, 20), 'image/png'), false);
+  const huge = Buffer.from(png);
+  huge.writeUInt32BE(10001, 16);
+  assert.equal(validateImageDimensions(huge, 'image/png'), false);
+  huge.writeUInt32BE(9000, 16);
+  huge.writeUInt32BE(9000, 20);
+  assert.equal(validateImageDimensions(huge, 'image/png'), false);
+  const jpeg = Buffer.from('ffd8ffe000040000ffc0000b080100020001011100', 'hex');
+  assert.equal(validateImageDimensions(jpeg, 'image/jpeg'), true);
+  assert.equal(validateImageDimensions(jpeg.subarray(0, jpeg.length - 1), 'image/jpeg'), false);
+  assert.equal(validateImageDimensions(Buffer.from('ffd8ffda0002', 'hex'), 'image/jpeg'), false);
+  assert.equal(validateImageDimensions(Buffer.from('89504e470d0a1a0a', 'hex'), 'image/png'), false);
 });
 
 test('hidden project details and interactions are limited to the owner', async (t) => {

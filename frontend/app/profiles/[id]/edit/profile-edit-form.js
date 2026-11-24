@@ -264,13 +264,22 @@ const ProfileEditForm = ({ profileId }) => {
               Avatar
               <input
                 type='file'
-                accept='image/*'
-                onChange={(event) =>
-                  setAvatarFile(event.target.files?.[0] || null)
-                }
+                accept='image/jpeg,image/png'
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  if (file && ((file.type && !['image/jpeg', 'image/png'].includes(file.type)) || file.size > 5 * 1024 * 1024)) {
+                    setAvatarFile(null);
+                    event.target.value = '';
+                    setError('Choose a JPEG or PNG image no larger than 5 MB.');
+                    return;
+                  }
+                  setError('');
+                  setAvatarFile(file);
+                }}
               />
             </label>
           </div>
+          <p className='helper-copy'>JPEG or PNG, up to 5 MB, 10,000 pixels per side and 40 megapixels.</p>
         </div>
 
         <div className='project-form__section'>

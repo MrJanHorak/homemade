@@ -120,6 +120,8 @@ Email authentication POST endpoints share a limit of 30 requests per IP per 15 m
 
 For uploads, set `S3_BUCKET` and `AWS_REGION` and use the AWS SDK credential chain. Use a test bucket. The app currently stores direct S3 image URLs, so hiding a project in HomeMade does not revoke those URLs.
 
+Project and avatar uploads accept JPEG or PNG files up to 5 MB each, 10,000 pixels per side, and 40 megapixels. Dimensions are checked from image headers; complete decoding and validation are still needed before treating uploaded content as fully verified.
+
 The upload service attempts to delete every object from a failed upload batch before a database write starts. Its S3 credentials need `s3:DeleteObject` as well as `s3:PutObject` for those app-owned keys. Cleanup is best effort; failed cleanup and ambiguous database-write outcomes still require storage reconciliation.
 
 Use these origins for local development.
