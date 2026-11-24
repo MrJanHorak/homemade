@@ -11,7 +11,7 @@ import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
 import { ProjectDraft } from '../models/projectDraft.js';
 import { CategorySuggestion } from '../models/categorySuggestion.js';
-import { profilePicstoS3, projectPicstoS3 } from '../services/s3Service.js';
+import { getMediaUrl, uploadProfileAvatar, uploadProjectPictures } from '../services/mediaStorage.js';
 import categoryCatalog from '../data/categories.js';
 import {
   serializeChat,
@@ -484,7 +484,7 @@ const getSession = (req, res) => {
           profile: {
             id: req.user.profile._id.toString(),
             name: req.user.profile.name,
-            avatar: req.user.profile.avatar,
+            avatar: getMediaUrl(req.user.profile.avatar),
             role: req.user.profile.role,
           },
         }
@@ -876,7 +876,7 @@ const createProject = async (req, res) => {
 
   let buildPictures = [];
   if (req.files?.length) {
-    buildPictures = await projectPicstoS3(req.files);
+    buildPictures = await uploadProjectPictures(req.files);
   }
 
   const normalizedCategories =
@@ -958,7 +958,7 @@ const updateProject = async (req, res) => {
 
   let buildPictures = project.buildPictures || [];
   if (req.files?.length) {
-    const uploadedPictures = await projectPicstoS3(req.files);
+    const uploadedPictures = await uploadProjectPictures(req.files);
     buildPictures = [...buildPictures, ...uploadedPictures];
   }
 
@@ -1417,7 +1417,7 @@ const updateProfile = async (req, res) => {
   }
 
   if (req.file) {
-    profile.avatar = await profilePicstoS3(req.file);
+    profile.avatar = await uploadProfileAvatar(req.file);
   }
 
   const social = parseJsonObject(req.body.social);
@@ -1658,7 +1658,7 @@ const getOlderChatMessages = async (req, res) => {
   const messages = page.map((message) => ({
     id: message._id.toString(),
     user: senderById.has(message.user?.toString())
-      ? { id: message.user.toString(), name: senderById.get(message.user.toString()).name, avatar: senderById.get(message.user.toString()).avatar }
+      ? { id: message.user.toString(), name: senderById.get(message.user.toString()).name, avatar: getMediaUrl(senderById.get(message.user.toString()).avatar) }
       : null,
     message: message.message,
     timestamp: message.timestamp,

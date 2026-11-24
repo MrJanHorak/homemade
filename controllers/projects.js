@@ -1,6 +1,6 @@
 import { Project } from '../models/project.js';
 import { Profile } from '../models/profile.js';
-import { projectPicstoS3 } from '../services/s3Service.js';
+import { uploadProjectPictures } from '../services/mediaStorage.js';
 import categories from '../data/categories.js';
 
 const index = (req, res) => {
@@ -66,7 +66,7 @@ const create = async (req, res) => {
     req.body.visible = !!req.body.visible;
 
     if (req.files && req.files.length > 0) {
-      const projectPicsUrls = await projectPicstoS3(req.files);
+      const projectPicsUrls = await uploadProjectPictures(req.files);
       req.body.buildPictures = projectPicsUrls;
     }
 
@@ -171,7 +171,7 @@ const update = async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
-      const newProjectPicsUrls = await projectPicstoS3(req.files);
+      const newProjectPicsUrls = await uploadProjectPictures(req.files);
 
       req.body.buildPictures = [
         ...project.buildPictures,

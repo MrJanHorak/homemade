@@ -1,6 +1,6 @@
 import { Profile } from '../models/profile.js';
 import { Project } from '../models/project.js';
-import { profilePicstoS3 } from '../services/s3Service.js';
+import { uploadProfileAvatar } from '../services/mediaStorage.js';
 
 import categories from '../data/categories.js';
 
@@ -71,7 +71,7 @@ const update = async (req, res) => {
   console.log(req.body);
   try {
     if (req.file) {
-      req.body.avatar = await profilePicstoS3(req.file);
+      req.body.avatar = await uploadProfileAvatar(req.file);
     }
 
     const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, {

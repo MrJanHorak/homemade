@@ -38,7 +38,7 @@ The sample in [.env.example](.env.example) contains the local defaults. Set `POR
 
 | Setting | Purpose |
 | --- | --- |
-| `DATABASE_URL`, `SESSION_SECRET` | MongoDB connection and Express session signing. Use a disposable database and a strong secret. |
+| `DATABASE_URL`, `SESSION_SECRET` | MongoDB connection and Express session signing. Sessions use the `sessions` collection in this database. Production requires a unique secret of at least 32 bytes and a durable MongoDB connection. |
 | `FRONTEND_URL`, `CLIENT_ORIGIN`, `API_BASE_URL` | Frontend and backend origins used by redirects, auth, and allowed-origin checks. |
 | `NEXT_PUBLIC_API_BASE_URL` | Browser-visible API origin, defaulting to `http://localhost:3000`. Set it in the frontend environment before starting or building Next.js. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_SECRET`, `GOOGLE_CALLBACK` | Enable Google sign-in when all three are configured. |
@@ -46,13 +46,14 @@ The sample in [.env.example](.env.example) contains the local defaults. Set `POR
 | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_CALLBACK` | Enable Microsoft sign-in when all three are configured. |
 | `AUTH_DEBUG_LINKS` | When `true` outside production, return local verification and magic links. Use only with a loopback-only test service and disposable accounts. |
 | `S3_BUCKET`, `AWS_REGION` | Upload destination. Credentials come from the AWS SDK credential chain; `AWS_BUCKET_NAME` is a legacy bucket-name fallback. |
+| `MEDIA_PROVIDER` | Storage adapter for new uploads and resolving portable `media:` object-key references. Currently supported value: `s3` (default). |
 | `TRUST_PROXY_HOPS` | Number of trusted reverse-proxy hops, set only for a known deployment topology. |
 
 Provider callbacks must match the URLs registered with their providers. Apple sign-in is disabled pending verification. Existing password accounts can sign in, but production email delivery, password recovery, and explicit provider linking are not implemented. Email signup, verification resend, and magic-link requests are unavailable unless development links are enabled.
 
-Email-authentication POSTs share a limit of 30 requests per IP per 15 minutes **per server process**, with `Retry-After` on a 429 response. The limit resets on restart and is not shared across instances. Production needs a shared limiter or equivalent edge protection and an accurately configured proxy chain. Sessions currently use the in-memory store and need a durable store for production.
+Email-authentication POSTs share a limit of 30 requests per IP per 15 minutes **per server process**, with `Retry-After` on a 429 response. The limit resets on restart and is not shared across instances. Production needs a shared limiter or equivalent edge protection and an accurately configured proxy chain. When `DATABASE_URL` is set, Express sessions are stored in MongoDB and expire after seven days; production startup requires this database URL and a unique `SESSION_SECRET` of at least 32 bytes. Configure the trusted proxy hop count so secure cookies work behind the selected host's HTTPS proxy.
 
-Uploads accept JPEG or PNG files up to 5 MB each, 10,000 pixels per side, and 40 megapixels. Project requests allow up to 12 new files. The server checks signatures and dimensions from image headers, not full decoding. Failed upload batches attempt to delete all attempted objects before a database write; S3 credentials therefore need `s3:PutObject` and `s3:DeleteObject` for app-owned keys. Cleanup is best effort and ambiguous database-write outcomes still need reconciliation.
+Uploads accept JPEG or PNG files up to 5 MB each, 10,000 pixels per side, and 40 megapixels. Project requests allow up to 12 new files. The server checks signatures and dimensions from image headers, not full decoding. Failed upload batches attempt to delete all attempted objects before a database write; S3 credentials therefore need `s3:PutObject` and `s3:DeleteObject` for app-owned keys. Cleanup is best effort and ambiguous database-write outcomes still need reconciliation. New uploads store provider-neutral `media:<object-key>` references; API serializers resolve these through the selected `MEDIA_PROVIDER`. Existing absolute S3 URLs remain supported for compatibility. To move providers, copy objects while preserving their keys, add a provider adapter, and then change `MEDIA_PROVIDER`; migrate legacy URL records only after verifying the copied assets.
 
 **Hidden project pages are owner-only, but their direct S3 image URLs may still be public.** Use private, access-controlled media before relying on hidden projects for confidential photos.
 

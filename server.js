@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import createError from 'http-errors';
 import cors from 'cors';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import logger from 'morgan';
 import passport from 'passport';
 import { passUserToView } from './middleware/middleware.js';
@@ -19,6 +20,28 @@ import { router as frontendRouter } from './routes/frontend.js';
 // create the express app
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
+const sessionSecret = process.env.SESSION_SECRET;
+const databaseUrl = process.env.DATABASE_URL;
+const sessionMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
+
+if (isProduction && !databaseUrl) {
+  throw new Error('DATABASE_URL is required in production to persist sessions.');
+}
+if (
+  isProduction &&
+  (!sessionSecret || sessionSecret === 'replace-me' || Buffer.byteLength(sessionSecret, 'utf8') < 32)
+) {
+  throw new Error('SESSION_SECRET must be a unique value of at least 32 bytes in production.');
+}
+
+const sessionStore = databaseUrl
+  ? MongoStore.create({
+      mongoUrl: databaseUrl,
+      collectionName: 'sessions',
+      ttl: Math.floor(sessionMaxAgeMs / 1000),
+      autoRemove: 'native',
+    })
+  : undefined;
 const allowedOrigins = new Set(
   [
     process.env.FRONTEND_URL,
@@ -67,16 +90,18 @@ app.use(
 
 // session middleware
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET,
+  secret: sessionSecret,
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
+    httpOnly: true,
     sameSite: 'lax',
     secure: isProduction,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: sessionMaxAgeMs,
   },
 });
-app.use(sessionMiddleware); // Use the middleware
+app.use(sessionMiddleware);
 
 // passport middleware
 app.use(passport.initialize());
