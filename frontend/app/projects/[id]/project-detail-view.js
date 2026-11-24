@@ -29,6 +29,9 @@ const getSafeRating = (value) => {
 };
 
 const StarRating = ({ rating, ratingCount, projectId }) => {
+  if (!ratingCount) {
+    return <div className='metric-rating'>Unrated</div>;
+  }
   const safeRating = getSafeRating(rating);
   const gradientPrefix = `project-detail-rating-${projectId || 'project'}`;
 

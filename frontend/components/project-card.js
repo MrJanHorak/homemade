@@ -39,6 +39,9 @@ const getDescriptionPreview = (value, maxLength = 180) => {
 };
 
 const StarRating = ({ rating, ratingCount, projectId }) => {
+  if (!ratingCount) {
+    return <div className='project-card__rating'>Unrated</div>;
+  }
   const safeRating = getSafeRating(rating);
   const gradientPrefix = `project-rating-${projectId || 'card'}`;
 

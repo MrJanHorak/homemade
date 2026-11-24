@@ -13,6 +13,7 @@ const CommentForm = ({ projectId, ownerId }) => {
   const [rating, setRating] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
 
@@ -57,6 +58,7 @@ const CommentForm = ({ projectId, ownerId }) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError('');
+    setSuccess('');
 
     try {
       const response = await fetch(
@@ -78,6 +80,7 @@ const CommentForm = ({ projectId, ownerId }) => {
 
       setContent('');
       setRating('');
+      setSuccess('Your feedback was saved.');
       router.refresh();
     } catch (submitError) {
       setError(submitError.message);
@@ -140,6 +143,7 @@ const CommentForm = ({ projectId, ownerId }) => {
       </label>
 
       {error ? <p className='form-error' role='alert'>{error}</p> : null}
+      <p className='helper-copy' role='status'>{success}</p>
 
       <button type='submit' className='button' disabled={isSubmitting}>
         {isSubmitting ? 'Saving...' : 'Post feedback'}

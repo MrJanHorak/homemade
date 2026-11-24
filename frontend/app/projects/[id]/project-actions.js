@@ -5,23 +5,28 @@ import { useEffect, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 
 const ProjectActions = ({ projectId, ownerId }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [statusReady, setStatusReady] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     let isMounted = true;
 
     const loadSession = async () => {
+      setStatusReady(false);
+      setError('');
       try {
         const response = await fetch(`${API_BASE_URL}/api/session/current`, {
           credentials: 'include',
         });
 
         if (!response.ok) {
-          return;
+          throw new Error('Unable to check your account.');
         }
 
         const data = await response.json();
@@ -45,17 +50,14 @@ const ProjectActions = ({ projectId, ownerId }) => {
             },
           );
 
-          if (saveStatusResponse.ok) {
-            const saveStatus = await saveStatusResponse.json();
-            if (isMounted) {
-              setIsSaved(Boolean(saveStatus.saved));
-            }
-          }
+          if (!saveStatusResponse.ok) throw new Error('Unable to check whether this project is saved.');
+          const saveStatus = await saveStatusResponse.json();
+          if (isMounted) setIsSaved(Boolean(saveStatus.saved));
         }
+        if (isMounted) setStatusReady(true);
       } catch {
         if (isMounted) {
-          setIsAuthenticated(false);
-          setIsOwner(false);
+          setError('Unable to check your account or saved status.');
         }
       }
     };
@@ -65,7 +67,7 @@ const ProjectActions = ({ projectId, ownerId }) => {
     return () => {
       isMounted = false;
     };
-  }, [ownerId, projectId]);
+  }, [ownerId, projectId, retry]);
 
   const toggleSave = async () => {
     if (!isAuthenticated || isOwner || isSaving) {
@@ -74,6 +76,7 @@ const ProjectActions = ({ projectId, ownerId }) => {
 
     setIsSaving(true);
     setError('');
+    setMessage('');
 
     try {
       const response = await fetch(
@@ -91,6 +94,7 @@ const ProjectActions = ({ projectId, ownerId }) => {
 
       const payload = await response.json();
       setIsSaved(Boolean(payload.saved));
+      setMessage(payload.saved ? 'Project saved.' : 'Project removed from saved projects.');
     } catch (saveError) {
       setError(saveError.message);
     } finally {
@@ -98,8 +102,20 @@ const ProjectActions = ({ projectId, ownerId }) => {
     }
   };
 
+  if (!statusReady) {
+    return error ? (
+      <p className='form-error' role='alert'>
+        {error} <button type='button' onClick={() => setRetry((value) => value + 1)}>Try again</button>
+      </p>
+    ) : <p className='helper-copy' role='status'>Checking project actions...</p>;
+  }
+
   if (!isAuthenticated) {
-    return null;
+    return (
+      <Link href={`/auth/sign-in?returnTo=${encodeURIComponent(`/projects/${projectId}`)}`} className='button button--ghost'>
+        Sign in to save this project
+      </Link>
+    );
   }
 
   return (
@@ -118,12 +134,14 @@ const ProjectActions = ({ projectId, ownerId }) => {
             className='button button--ghost'
             onClick={toggleSave}
             disabled={isSaving}
+            aria-pressed={isSaved}
           >
-            {isSaving ? 'Saving...' : isSaved ? 'Saved' : 'Save project'}
+            {isSaving ? 'Saving...' : isSaved ? 'Remove from saved projects' : 'Save project'}
           </button>
         )}
       </div>
-      {error ? <p className='form-error'>{error}</p> : null}
+      {error ? <p className='form-error' role='alert'>{error}</p> : null}
+      <p className='helper-copy' role='status'>{message}</p>
     </>
   );
 };
