@@ -1355,6 +1355,7 @@ const searchProjects = async (req, res) => {
 };
 
 const getChats = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   const currentProfileId = req.user.profile._id.toString();
   const chats = await Chat.find({
     $or: [{ user1: req.user.profile._id }, { user2: req.user.profile._id }],
@@ -1371,6 +1372,7 @@ const getChats = async (req, res) => {
 };
 
 const getChat = async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   const chat = await Chat.findById(req.params.chatId)
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
@@ -1393,6 +1395,11 @@ const getChat = async (req, res) => {
 
   if (!isParticipant) {
     res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  if ((chat.hiddenBy || []).some((id) => id.equals(req.user.profile._id))) {
+    res.status(404).json({ error: 'Chat not found' });
     return;
   }
 
@@ -1426,6 +1433,9 @@ const createChat = async (req, res) => {
     .exec();
 
   if (existingChat) {
+    if ((existingChat.hiddenBy || []).some((id) => id.equals(user1Id))) {
+      await Chat.updateOne({ _id: existingChat._id }, { $pull: { hiddenBy: user1Id } }).exec();
+    }
     res.json({ chat: serializeChat(existingChat, user1Id.toString()) });
     return;
   }

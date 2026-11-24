@@ -34,11 +34,14 @@ const ChatShell = ({ chatId }) => {
   const [activeChat, setActiveChat] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [hidingChatId, setHidingChatId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [retryLoad, setRetryLoad] = useState(0);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState('');
   const composerRef = useRef(null);
+  const requestVersion = useRef(0);
 
   const returnTo = useMemo(
     () => (chatId ? `/chats/${chatId}` : '/chats'),
@@ -46,9 +49,11 @@ const ChatShell = ({ chatId }) => {
   );
 
   const loadChats = async () => {
+    const version = ++requestVersion.current;
     const chatsResponse = await fetch(`${API_BASE_URL}/api/chats`, {
       credentials: 'include',
     });
+    if (version !== requestVersion.current) return;
 
     if (chatsResponse.status === 401) {
       setSession(emptySession);
@@ -57,7 +62,10 @@ const ChatShell = ({ chatId }) => {
       return;
     }
 
+    if (!chatsResponse.ok) throw new Error('Unable to load conversations.');
+
     const chatsData = await chatsResponse.json();
+    if (version !== requestVersion.current) return;
     setChats(chatsData.chats || []);
 
     if (!chatId && chatsData.chats?.length) {
@@ -69,10 +77,11 @@ const ChatShell = ({ chatId }) => {
       const chatResponse = await fetch(`${API_BASE_URL}/api/chats/${chatId}`, {
         credentials: 'include',
       });
+      if (version !== requestVersion.current) return;
 
       if (chatResponse.ok) {
         const chatData = await chatResponse.json();
-        setActiveChat(chatData.chat);
+        if (version === requestVersion.current) setActiveChat(chatData.chat);
       } else {
         setActiveChat(null);
       }
@@ -93,6 +102,7 @@ const ChatShell = ({ chatId }) => {
             credentials: 'include',
           },
         );
+        if (!sessionResponse.ok) throw new Error('Unable to load your account.');
         const sessionData = await sessionResponse
           .json()
           .catch(() => emptySession);
@@ -125,26 +135,32 @@ const ChatShell = ({ chatId }) => {
 
     return () => {
       isMounted = false;
+      requestVersion.current += 1;
     };
-  }, [chatId]);
+  }, [chatId, retryLoad]);
 
   useEffect(() => {
     if (!session.authenticated || !chatId) {
       return;
     }
 
-    const intervalId = setInterval(() => {
-      loadChats().catch(() => {});
-    }, 5000);
+    let stopped = false;
+    let timer;
+    const poll = async () => {
+      try { await loadChats(); } catch { /* Keep the last successful view and retry. */ }
+      if (!stopped) timer = setTimeout(poll, 5000);
+    };
+    timer = setTimeout(poll, 5000);
 
     return () => {
-      clearInterval(intervalId);
+      stopped = true;
+      clearTimeout(timer);
     };
   }, [chatId, session.authenticated]);
 
   const handleSendMessage = async (event) => {
     event.preventDefault();
-    if (!message.trim() || !chatId) {
+    if (!message.trim() || !chatId || isSending) {
       return;
     }
 
@@ -170,12 +186,13 @@ const ChatShell = ({ chatId }) => {
       }
 
       const payload = await response.json();
+      requestVersion.current += 1;
       setActiveChat(payload.chat);
       setMessage('');
       if (composerRef.current) {
         composerRef.current.style.height = 'auto';
       }
-      await loadChats();
+      await loadChats().catch(() => setError('Message sent, but the conversation list could not be refreshed.'));
     } catch (sendError) {
       setError(sendError.message);
     } finally {
@@ -184,6 +201,8 @@ const ChatShell = ({ chatId }) => {
   };
 
   const handleHideChat = async (hideChatId) => {
+    if (hidingChatId) return;
+    setHidingChatId(hideChatId);
     setError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/chats/${hideChatId}/hide`, {
@@ -191,10 +210,16 @@ const ChatShell = ({ chatId }) => {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Unable to hide this conversation.');
+      requestVersion.current += 1;
       setChats((prev) => prev.filter((chat) => chat.id !== hideChatId));
-      if (chatId === hideChatId) router.replace('/chats');
+      if (chatId === hideChatId) {
+        setActiveChat(null);
+        router.replace('/chats');
+      }
     } catch {
       setError('Unable to hide this conversation. Try again.');
+    } finally {
+      setHidingChatId('');
     }
   };
 
@@ -231,6 +256,7 @@ const ChatShell = ({ chatId }) => {
       }
 
       const payload = await response.json();
+      requestVersion.current += 1;
       setActiveChat(payload.chat);
       setEditingMessageId(null);
       setEditText('');
@@ -244,6 +270,16 @@ const ChatShell = ({ chatId }) => {
       <section className='section-panel section-panel--tight'>
         <p className='eyebrow'>Chats</p>
         <h1>Loading conversations...</h1>
+      </section>
+    );
+  }
+
+  if (!session.authenticated && error) {
+    return (
+      <section className='section-panel section-panel--tight'>
+        <h1>Unable to load conversations</h1>
+        <p role='alert'>{error}</p>
+        <button type='button' className='button' onClick={() => setRetryLoad((value) => value + 1)}>Try again</button>
       </section>
     );
   }
@@ -277,7 +313,8 @@ const ChatShell = ({ chatId }) => {
         </div>
       </div>
 
-      <div className='chat-layout'>
+      {error ? <p className='form-error' role='alert'>{error}</p> : null}
+      <div className={`chat-layout ${chatId ? 'chat-layout--thread' : 'chat-layout--inbox'}`}>
         <aside className='chat-sidebar'>
           {chats.length ? (
             chats.map((chat) => (
@@ -285,6 +322,7 @@ const ChatShell = ({ chatId }) => {
                 <Link
                   href={`/chats/${chat.id}`}
                   className={`chat-sidebar__item ${chatId === chat.id ? 'chat-sidebar__item--active' : ''}`}
+                  aria-current={chatId === chat.id ? 'page' : undefined}
                 >
                   <img
                     src={
@@ -305,9 +343,11 @@ const ChatShell = ({ chatId }) => {
                 </Link>
                 <button
                   className='chat-sidebar__hide-btn'
+                  type='button'
                   onClick={() => handleHideChat(chat.id)}
+                  disabled={Boolean(hidingChatId)}
                   title='Hide conversation'
-                  aria-label='Hide conversation'
+                  aria-label={`Hide conversation with ${chat.otherUser?.name || 'maker'}`}
                 >
                   ✕
                 </button>
@@ -321,6 +361,7 @@ const ChatShell = ({ chatId }) => {
         </aside>
 
         <div className='chat-thread'>
+          <Link href='/chats' className='chat-thread__back button button--ghost button--compact'>Back to conversations</Link>
           {activeChat ? (
             <>
               <header className='chat-thread__header'>
@@ -353,6 +394,7 @@ const ChatShell = ({ chatId }) => {
                               value={editText}
                               onChange={(e) => setEditText(e.target.value)}
                               autoFocus
+                              aria-label='Edit message'
                             />
                             <div className='chat-bubble__edit-actions'>
                               <button
@@ -423,6 +465,7 @@ const ChatShell = ({ chatId }) => {
                   ref={composerRef}
                   rows={1}
                   value={message}
+                  disabled={isSending}
                   onChange={(event) => setMessage(event.target.value)}
                   onInput={(event) => {
                     event.target.style.height = 'auto';
@@ -435,6 +478,7 @@ const ChatShell = ({ chatId }) => {
                     }
                   }}
                   placeholder='Type a message...'
+                  aria-label='Message'
                 />
                 <button type='submit' className='button' disabled={isSending}>
                   {isSending ? 'Sending...' : 'Send'}
@@ -443,13 +487,12 @@ const ChatShell = ({ chatId }) => {
             </>
           ) : (
             <div className='chat-thread__empty'>
-              <h2>Select a conversation</h2>
+              <h2>{chatId ? 'Conversation unavailable' : 'Select a conversation'}</h2>
               <p className='empty-copy'>
-                Choose one from the left to read and send messages.
+                {chatId ? 'This conversation could not be loaded. If you hid it, contact the maker from their profile to reopen it.' : 'Choose one from the left to read and send messages.'}
               </p>
             </div>
           )}
-          {error ? <p className='form-error'>{error}</p> : null}
         </div>
       </div>
     </section>

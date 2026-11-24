@@ -119,6 +119,11 @@ test('JSON routes enforce chat membership, admin role, draft account, and owner-
   assert.equal((await request(apiWithViewer(), 'GET', `/api/chats/${projectId}`)).status, 401);
   assert.equal((await request(apiWithViewer(caller), 'GET', `/api/chats/${projectId}`)).status, 403);
   assert.equal((await request(apiWithViewer(owner), 'GET', `/api/chats/${projectId}`)).status, 200);
+  thread.hiddenBy = [owner];
+  assert.equal((await request(apiWithViewer(owner), 'GET', `/api/chats/${projectId}`)).status, 404);
+  const otherView = await request(apiWithViewer(visitor), 'GET', `/api/chats/${projectId}`);
+  assert.equal(otherView.status, 200);
+  assert.equal(otherView.headers['cache-control'], 'private, no-store');
   assert.equal((await request(apiWithViewer(visitor), 'GET', '/api/admin/category-suggestions')).status, 403);
   assert.equal((await request(apiWithViewer(visitor), 'PUT', `/api/profiles/${owner}`)).status, 403);
   assert.equal(profileFind.mock.callCount(), 1);
@@ -198,6 +203,7 @@ test('chat creation requires another existing profile and reuses an existing con
     exec: async () => thread,
   }));
   const create = t.mock.method(Chat, 'create', async () => { throw new Error('Unexpected chat creation'); });
+  const unhide = t.mock.method(Chat, 'updateOne', () => ({ exec: async () => ({ modifiedCount: 1 }) }));
   const invoke = async (user2) => {
     const res = {
       statusCode: 200,
@@ -219,6 +225,10 @@ test('chat creation requires another existing profile and reuses an existing con
   assert.equal(response.body.chat.id, projectId.toString());
   assert.equal(find.mock.callCount(), 1);
   assert.equal(create.mock.callCount(), 0);
+  thread.hiddenBy = [owner, visitor];
+  assert.equal((await invoke(visitor.toString())).statusCode, 200);
+  assert.equal(unhide.mock.callCount(), 1);
+  assert.ok(unhide.mock.calls[0].arguments[1].$pull.hiddenBy.equals(owner));
 });
 
 test('sign-in return paths, rich text, and historical step image names work offline', () => {
