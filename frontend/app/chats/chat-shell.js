@@ -50,7 +50,7 @@ const ChatShell = ({ chatId }) => {
 
   const loadChats = async () => {
     const version = ++requestVersion.current;
-    const chatsResponse = await fetch(`${API_BASE_URL}/api/chats`, {
+    const chatsResponse = await fetch(`${API_BASE_URL}/api/chats?summary=1`, {
       credentials: 'include',
     });
     if (version !== requestVersion.current) return;

@@ -1357,10 +1357,13 @@ const searchProjects = async (req, res) => {
 const getChats = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const currentProfileId = req.user.profile._id.toString();
-  const chats = await Chat.find({
+  const query = Chat.find({
     $or: [{ user1: req.user.profile._id }, { user2: req.user.profile._id }],
     hiddenBy: { $nin: [req.user.profile._id] },
-  })
+  });
+  // The inbox only needs the latest message; retain the full response for older clients.
+  if (req.query.summary === '1') query.slice('messages', -1);
+  const chats = await query
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .sort({ updatedAt: -1 })

@@ -133,6 +133,35 @@ test('JSON routes enforce chat membership, admin role, draft account, and owner-
   assert.equal(del.mock.callCount(), 2);
 });
 
+test('chat inbox summaries select the latest message while retaining the legacy response', async (t) => {
+  assert.deepEqual(Chat.find().slice('messages', -1).projection(), { messages: { $slice: -1 } });
+  const oldMessage = { _id: new Types.ObjectId(), message: 'older message' };
+  const newMessage = { _id: new Types.ObjectId(), message: 'latest message' };
+  const slices = [];
+  const find = t.mock.method(Chat, 'find', () => {
+    let summary = false;
+    return {
+      slice(path, count) { slices.push([path, count]); summary = true; return this; },
+      populate() { return this; },
+      sort() { return this; },
+      exec: async () => [{ _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: summary ? [newMessage] : [oldMessage, newMessage] }],
+    };
+  });
+  assert.equal((await request(apiWithViewer(), 'GET', '/api/chats?summary=1')).status, 401);
+  const summary = await request(apiWithViewer(owner), 'GET', '/api/chats?summary=1');
+  assert.equal(summary.status, 200);
+  assert.equal(summary.headers['cache-control'], 'private, no-store');
+  assert.match(summary.output, /latest message/);
+  assert.doesNotMatch(summary.output, /older message/);
+  assert.deepEqual(slices, [['messages', -1]]);
+  const filter = find.mock.calls[0].arguments[0];
+  assert.ok(filter.hiddenBy.$nin[0].equals(owner));
+  assert.ok(filter.$or[0].user1.equals(owner));
+  const legacy = await request(apiWithViewer(owner), 'GET', '/api/chats');
+  assert.match(legacy.output, /older message/);
+  assert.equal(slices.length, 1);
+});
+
 test('rating lookup requires a viewer, respects visibility, and returns only that viewer’s score', async (t) => {
   const other = new Types.ObjectId();
   const project = {
