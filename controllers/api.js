@@ -1821,7 +1821,7 @@ const createChat = async (req, res) => {
     return;
   }
 
-  const chat = await Chat.create({ user1: user1Id, user2: user2Id });
+  const chat = await Chat.create({ user1: user1Id, user2: user2Id, messagesMigrated: true });
   const populatedChat = await Chat.findById(chat._id)
     .slice('messages', -50)
     .populate('user1', 'name avatar')

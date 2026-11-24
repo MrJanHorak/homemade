@@ -4,10 +4,7 @@ import { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import Table from '@tiptap/extension-table';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
-import TableRow from '@tiptap/extension-table-row';
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { common, createLowlight } from 'lowlight';
 
 const lowlight = createLowlight(common);
@@ -34,6 +31,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Enter text...' }) => {
       onChange(editor.getHTML());
     },
     immediatelyRender: false,
+    shouldRerenderOnTransaction: true,
   });
 
   useEffect(() => {
@@ -44,7 +42,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Enter text...' }) => {
     const nextValue = value || '';
 
     if (editor.getHTML() !== nextValue) {
-      editor.commands.setContent(nextValue || '<p></p>', false);
+      editor.commands.setContent(nextValue || '<p></p>', { emitUpdate: false });
     }
   }, [editor, value]);
 

@@ -6,7 +6,7 @@ import { Profile } from '../models/profile.js';
 import { User } from '../models/user.js';
 import { authDebugLinksEnabled } from '../lib/auth-email.js';
 import { safeReturnTo } from '../lib/return-to.js';
-import { createAuthRateLimit } from '../middleware/authRateLimit.js';
+import { createAuthRateLimit, createMongoAuthRateLimit } from '../middleware/authRateLimit.js';
 
 const router = Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -154,7 +154,9 @@ const requireEmailDelivery = (req, res, next) => {
   res.status(503).json({ error: 'Email delivery is unavailable. Choose another sign-in option.' });
 };
 
-const authRateLimit = createAuthRateLimit();
+const authRateLimit = process.env.NODE_ENV === 'production'
+  ? createMongoAuthRateLimit()
+  : createAuthRateLimit();
 router.use(['/signup', '/login', '/verify-email', '/verify-email/resend', '/magic-link/request', '/magic-link/consume'], (req, res, next) => {
   if (req.method !== 'POST') return next();
   return authRateLimit(req, res, next);

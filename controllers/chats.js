@@ -134,7 +134,7 @@ const createChat = async (req, res, next) => {
       res.redirect(`/chats/${existingChat._id}`);
     } else {
       // Create a new chat
-      const newChat = await Chat.create({ user1: user1Id, user2: user2Id });
+      const newChat = await Chat.create({ user1: user1Id, user2: user2Id, messagesMigrated: true });
 
       // Redirect to the new chat
       res.redirect(`/chats/${newChat._id}`);
