@@ -17,6 +17,8 @@ import { getStoredPictureName, resolveInstructionImageIndexes } from '../fronten
 import { parseInstruction } from '../frontend/lib/project-instructions.js';
 import { clearMissingDraftAttachments, moveSelectedImage, removeSelectedImage } from '../frontend/lib/project-image-selection.js';
 import { MAX_CHAT_MESSAGE_LENGTH, validateChatMessage } from '../lib/chat-message.js';
+import { createAuthRateLimit } from '../middleware/authRateLimit.js';
+import { router as authRouter } from '../routes/auth.js';
 
 const projectId = new Types.ObjectId();
 const owner = new Types.ObjectId();
@@ -77,6 +79,39 @@ test('Express sends old page links to Next.js and retires legacy writes', async 
   assert.equal((await request(app, 'GET', '/auth/logout')).status, 404);
   assert.equal((await request(app, 'POST', '/auth/logout', { origin: 'https://example.invalid' })).status, 403);
   assert.equal((await request(app, 'POST', '/auth/signup')).status, 503);
+});
+
+test('email auth requests are limited per IP and recover after the window', async () => {
+  let clock = 0;
+  const limit = createAuthRateLimit({ limit: 2, windowMs: 10000, maxKeys: 3, now: () => clock });
+  const call = (ip) => {
+    const result = { headers: {}, statusCode: 200, allowed: false,
+      set(name, value) { this.headers[name] = value; return this; },
+      status(code) { this.statusCode = code; return this; },
+      json(body) { this.body = body; return this; } };
+    limit({ ip }, result, () => { result.allowed = true; });
+    return result;
+  };
+  assert.equal(call('one').allowed, true);
+  assert.equal(call('one').allowed, true);
+  assert.equal(call('two').allowed, true);
+  const blocked = call('one');
+  assert.equal(blocked.statusCode, 429);
+  assert.equal(blocked.headers['Retry-After'], '10');
+  clock = 10000;
+  assert.equal(call('one').allowed, true);
+
+  const app = express();
+  app.use((req, res, next) => { req.body = {}; next(); });
+  app.use('/auth', authRouter);
+  let first = await request(app, 'POST', '/auth/magic-link/consume');
+  assert.equal(first.status, 400);
+  let last = first;
+  for (let count = 0; count < 31 && last.status !== 429; count += 1) {
+    last = await request(app, 'POST', '/auth/magic-link/consume');
+  }
+  assert.equal(last.status, 429);
+  assert.ok(Number(last.headers['retry-after']) > 0);
 });
 
 test('hidden project details and interactions are limited to the owner', async (t) => {

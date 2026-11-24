@@ -116,6 +116,8 @@ Copy `.env.example` to `.env` and fill in the values.
 
 Set `DATABASE_URL` for a disposable local MongoDB database and set `SESSION_SECRET`. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_SECRET`, and `GOOGLE_CALLBACK` to test Google sign-in. Apple sign-in is disabled while its callback validation is being replaced. Existing password accounts can still sign in. Email sign-up, verification resend, and magic-link requests require a mail delivery implementation for production. To test those flows locally with a disposable database and a loopback-only service, set `AUTH_DEBUG_LINKS=true` to return development links directly.
 
+Email authentication POST endpoints share a limit of 30 requests per IP per 15 minutes, per server process. A 429 response includes `Retry-After`. This in-memory limit resets on restart and is not shared between instances; production deployments need a shared rate limiter or equivalent edge protection. Configure trusted proxy hops accurately so the client IP is interpreted correctly.
+
 For uploads, set `S3_BUCKET` and `AWS_REGION` and use the AWS SDK credential chain. Use a test bucket. The app currently stores direct S3 image URLs, so hiding a project in HomeMade does not revoke those URLs.
 
 Use these origins for local development.
