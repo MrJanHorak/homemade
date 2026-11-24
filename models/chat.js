@@ -16,6 +16,7 @@ const chatSchema = new Schema(
         editedAt: Date,
       },
     ],
+    messagesMigrated: { type: Boolean, default: false },
     hiddenBy: [{ type: Schema.Types.ObjectId, ref: 'Profile' }],
   },
   {

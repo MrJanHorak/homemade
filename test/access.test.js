@@ -5,10 +5,12 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Types } from 'mongoose';
 import express from 'express';
-import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage, blockProfile, unblockProfile } from '../controllers/api.js';
+import { getProject, getProjectSaveStatus, addProjectComment, saveProject, createChat, getProjectDraft, saveProjectDraft, deleteProjectDraft, addChatMessage, editChatMessage, reportChatMessage, blockProfile, unblockProfile, getChat, getOlderChatMessages } from '../controllers/api.js';
 import { Project } from '../models/project.js';
 import { Chat } from '../models/chat.js';
 import { ChatReport } from '../models/chatReport.js';
+import { ChatMessage } from '../models/chatMessage.js';
+import { migrateChat } from '../scripts/migrate-chat-messages.js';
 import { Profile } from '../models/profile.js';
 import { CategorySuggestion } from '../models/categorySuggestion.js';
 import { ProjectDraft } from '../models/projectDraft.js';
@@ -281,6 +283,25 @@ test('chat inbox summaries select the latest message while retaining the legacy 
   assert.deepEqual(windows, [['skip', 20], ['limit', 20]]);
 });
 
+test('chat inbox summaries use the latest external message for migrated conversations', async (t) => {
+  t.mock.method(Profile, 'findById', () => ({ select() { return this; }, exec: async () => ({ blockedProfiles: [] }) }));
+  t.mock.method(Profile, 'find', (filter) => ({
+    select() { return this; },
+    exec: async () => filter.blockedProfiles ? [] : [{ _id: visitor, name: 'Visitor', avatar: 'visitor.png' }],
+  }));
+  t.mock.method(Chat, 'find', () => ({
+    slice() { return this; }, populate() { return this; }, sort() { return this; }, skip() { return this; }, limit() { return this; },
+    exec: async () => [{ _id: projectId, user1: { _id: owner, name: 'Owner' }, user2: { _id: visitor, name: 'Visitor' }, messages: [], messagesMigrated: true }],
+  }));
+  t.mock.method(ChatMessage, 'aggregate', () => ({
+    exec: async () => [{ _id: projectId, message: { _id: new Types.ObjectId(), user: visitor, message: 'External latest', timestamp: new Date() } }],
+  }));
+
+  const response = await request(apiWithViewer(owner), 'GET', '/api/chats?summary=1&page=1&limit=30');
+  assert.equal(response.status, 200);
+  assert.match(response.output, /External latest/);
+});
+
 test('older chat message pages enforce membership and use a bounded cursor query', async (t) => {
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, hiddenBy: [] };
   t.mock.method(Chat, 'findById', () => ({
@@ -311,6 +332,93 @@ test('older chat message pages enforce membership and use a bounded cursor query
   assert.equal(page.headers['cache-control'], 'private, no-store');
   assert.match(page.output, /Earlier/);
   assert.deepEqual(aggregate.mock.calls[0].arguments[0][2], { $match: { 'messages._id': { $lt: new Types.ObjectId(visitor) } } });
+});
+
+test('migrated chat histories read recent and older pages from ChatMessage', async (t) => {
+  const thread = { _id: projectId, user1: { _id: owner, name: 'Owner' }, user2: { _id: visitor, name: 'Visitor' }, hiddenBy: [], messagesMigrated: true };
+  t.mock.method(Chat, 'findById', () => ({ select() { return this; }, populate() { return this; }, exec: async () => thread }));
+  t.mock.method(Profile, 'exists', async () => null);
+  const recentRows = Array.from({ length: 51 }, (_, index) => ({
+    _id: new Types.ObjectId(), user: { _id: visitor, name: 'Visitor', avatar: 'avatar.png' },
+    message: `Recent ${index}`, timestamp: new Date(index * 1000),
+  }));
+  const olderRows = [0, 1].map((index) => ({
+    _id: new Types.ObjectId(), chat: projectId, user: { _id: visitor, name: 'Visitor' },
+    message: `Older ${index}`, timestamp: new Date(index * 1000),
+  }));
+  let messagePage = 0;
+  const messageFind = t.mock.method(ChatMessage, 'find', () => ({
+    sort() { return this; }, limit() { return this; }, populate() { return this; }, exec: async () => [recentRows, olderRows][messagePage++],
+  }));
+  const invoke = async (handler, query) => {
+    const res = { statusCode: 200, headers: {}, set(key, value) { this.headers[key] = value; }, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await handler({ params: { chatId: projectId.toString() }, user: { profile: { _id: owner } }, query }, res);
+    return res;
+  };
+
+  const recent = await invoke(getChat, { summary: '1' });
+  assert.equal(recent.body.chat.messages.length, 50);
+  assert.equal(recent.body.chat.hasMoreOlder, true);
+  assert.equal(recent.body.chat.messages[0].message, 'Recent 49');
+  assert.deepEqual(messageFind.mock.calls[0].arguments[0], { chat: projectId });
+
+  const older = await invoke(getOlderChatMessages, { before: visitor.toString(), limit: '50' });
+  assert.deepEqual(older.body.messages.map((message) => message.message), ['Older 1', 'Older 0']);
+  assert.deepEqual(messageFind.mock.calls.at(-1).arguments[0], { chat: projectId, _id: { $lt: visitor } });
+});
+
+test('new messages in a migrated chat go to ChatMessage and refresh the inbox timestamp', async (t) => {
+  const chat = new Chat({ _id: projectId, user1: owner, user2: visitor, messagesMigrated: true, hiddenBy: [] });
+  const responseChat = { _id: projectId, user1: { _id: owner, name: 'Owner' }, user2: { _id: visitor, name: 'Visitor' }, messagesMigrated: true };
+  let chatLookup = 0;
+  t.mock.method(Chat, 'findById', () => {
+    chatLookup += 1;
+    return chatLookup === 1
+      ? { exec: async () => chat }
+      : { populate() { return this; }, exec: async () => responseChat };
+  });
+  t.mock.method(Profile, 'exists', async () => null);
+  const create = t.mock.method(ChatMessage, 'create', async (document) => ({ _id: new Types.ObjectId(), ...document }));
+  const update = t.mock.method(Chat, 'updateOne', () => ({ exec: async () => ({ matchedCount: 1 }) }));
+  t.mock.method(ChatMessage, 'find', () => ({
+    sort() { return this; }, limit() { return this; }, populate() { return this; },
+    exec: async () => [{ _id: new Types.ObjectId(), chat: projectId, user: { _id: owner, name: 'Owner' }, message: 'Stored separately', timestamp: new Date() }],
+  }));
+  const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  await addChatMessage({ params: { chatId: projectId.toString() }, user: { profile: { _id: owner } }, body: { message: 'Stored separately' } }, res);
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.chat.messages[0].message, 'Stored separately');
+  assert.equal(create.mock.calls[0].arguments[0].chat.toString(), projectId.toString());
+  assert.equal(update.mock.calls[0].arguments[1].$set.updatedAt instanceof Date, true);
+  assert.deepEqual(chat.messages, []);
+});
+
+test('chat message migration dry run is read-only', async (t) => {
+  const messageId = new Types.ObjectId();
+  t.mock.method(ChatMessage, 'find', () => ({ select() { return this; }, lean() { return this; }, exec: async () => [] }));
+  const bulkWrite = t.mock.method(ChatMessage, 'bulkWrite', async () => { throw new Error('Dry run must not write messages'); });
+  const deleteMany = t.mock.method(ChatMessage, 'deleteMany', () => { throw new Error('Dry run must not delete messages'); });
+  const updateOne = t.mock.method(Chat, 'updateOne', () => { throw new Error('Dry run must not change chats'); });
+  const count = await migrateChat({ _id: projectId, createdAt: new Date(), messages: [{ _id: messageId, user: owner, message: 'Preserve me' }] }, false);
+  assert.equal(count, 1);
+  assert.equal(bulkWrite.mock.callCount(), 0);
+  assert.equal(deleteMany.mock.callCount(), 0);
+  assert.equal(updateOne.mock.callCount(), 0);
+});
+
+test('chat message migration preserves IDs and removes embedded data only after verification', async (t) => {
+  const messageId = new Types.ObjectId();
+  const timestamp = new Date('2026-01-02T03:04:05Z');
+  const message = { _id: messageId, user: owner, message: 'Legacy content', timestamp, edited: true, editedAt: timestamp };
+  t.mock.method(ChatMessage, 'find', () => ({ select() { return this; }, lean() { return this; }, exec: async () => [] }));
+  const bulkWrite = t.mock.method(ChatMessage, 'bulkWrite', async () => ({}));
+  t.mock.method(ChatMessage, 'deleteMany', () => ({ exec: async () => ({ deletedCount: 0 }) }));
+  t.mock.method(ChatMessage, 'countDocuments', () => ({ exec: async () => 1 }));
+  const updateOne = t.mock.method(Chat, 'updateOne', () => ({ exec: async () => ({ matchedCount: 1 }) }));
+  const copied = await migrateChat({ _id: projectId, createdAt: timestamp, messages: [message] }, true);
+  assert.equal(copied, 1);
+  assert.equal(bulkWrite.mock.calls[0].arguments[0][0].updateOne.filter._id, messageId);
+  assert.deepEqual(updateOne.mock.calls[0].arguments[1], { $set: { messagesMigrated: true }, $unset: { messages: 1 } });
 });
 
 test('chat reports can only target another participant message and moderators alone can read the queue', async (t) => {
@@ -484,9 +592,11 @@ test('chat creation requires another existing profile and reuses an existing con
   });
   const thread = { _id: projectId, user1: { _id: owner }, user2: { _id: visitor }, messages: [] };
   const find = t.mock.method(Chat, 'findOne', () => ({
+    select() { return this; },
     populate() { return this; },
     exec: async () => thread,
   }));
+  t.mock.method(Chat, 'findById', () => ({ slice() { return this; }, populate() { return this; }, exec: async () => thread }));
   const create = t.mock.method(Chat, 'create', async () => { throw new Error('Unexpected chat creation'); });
   const unhide = t.mock.method(Chat, 'updateOne', () => ({ exec: async () => ({ modifiedCount: 1 }) }));
   const invoke = async (user2) => {

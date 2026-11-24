@@ -1,6 +1,7 @@
 import { Chat } from '../models/chat.js';
 import { Types } from 'mongoose';
 import { ChatReport } from '../models/chatReport.js';
+import { ChatMessage } from '../models/chatMessage.js';
 import passport from 'passport';
 import sanitizeHtml from 'sanitize-html';
 import { sanitizeRichText } from '../lib/rich-text.js';
@@ -14,6 +15,7 @@ import { profilePicstoS3, projectPicstoS3 } from '../services/s3Service.js';
 import categoryCatalog from '../data/categories.js';
 import {
   serializeChat,
+  serializeChatMessage,
   serializeProfile,
   serializeProject,
 } from '../lib/serializers.js';
@@ -262,6 +264,25 @@ const areProfilesBlocked = async (firstId, secondId) => Boolean(await Profile.ex
     { _id: secondId, blockedProfiles: firstId },
   ],
 }));
+
+const serializeChatWithMessages = (chat, currentProfileId, messages, hasMoreOlder = false) => {
+  const source = chat.toObject ? chat.toObject() : chat;
+  return { ...serializeChat({ ...source, messages }, currentProfileId), hasMoreOlder };
+};
+
+const getRecentChatMessages = async (chat, limit = 50) => {
+  if (chat.messagesMigrated) {
+    const rows = await ChatMessage.find({ chat: chat._id })
+      .sort({ _id: -1 }).limit(limit + 1).populate('user', 'name avatar').exec();
+    return { messages: rows.slice(0, limit).reverse(), hasMoreOlder: rows.length > limit };
+  }
+  const stored = await Chat.findById(chat._id)
+    .slice('messages', -(limit + 1))
+    .populate({ path: 'messages.user', select: 'name avatar' })
+    .exec();
+  const rows = stored?.messages || [];
+  return { messages: rows.slice(-limit), hasMoreOlder: rows.length > limit };
+};
 
 const PROJECT_SORT_OPTIONS = new Set([
   'latest',
@@ -1479,9 +1500,46 @@ const getChats = async (req, res) => {
     .sort({ updatedAt: -1 });
   if (paged) query.skip((page - 1) * limit).limit(limit);
   const chats = await query.exec();
+  const serializedChats = chats.map((chat) => serializeChat(chat, currentProfileId));
+  const migratedChatIds = chats.filter((chat) => chat.messagesMigrated).map((chat) => chat._id);
+  if (migratedChatIds.length && req.query.summary === '1') {
+    const latest = await ChatMessage.aggregate([
+      { $match: { chat: { $in: migratedChatIds } } },
+      { $sort: { chat: 1, _id: -1 } },
+      { $group: { _id: '$chat', message: { $first: '$$ROOT' } } },
+    ]).exec();
+    const senderIds = [...new Set(latest.map((row) => row.message.user?.toString()).filter(Boolean))];
+    const senders = senderIds.length
+      ? await Profile.find({ _id: { $in: senderIds } }).select('name avatar').exec()
+      : [];
+    const senderById = new Map(senders.map((profile) => [profile._id.toString(), profile]));
+    const chatById = new Map(serializedChats.map((chat) => [chat.id, chat]));
+    latest.forEach(({ _id, message }) => {
+      const chat = chatById.get(_id.toString());
+      if (!chat) return;
+      chat.messages = [serializeChatMessage({
+        ...message,
+        user: senderById.get(message.user?.toString()) || null,
+      })];
+    });
+  } else if (migratedChatIds.length) {
+    const messages = await ChatMessage.find({ chat: { $in: migratedChatIds } })
+      .sort({ chat: 1, _id: 1 }).populate('user', 'name avatar').exec();
+    const messagesByChat = new Map();
+    messages.forEach((message) => {
+      const chatId = message.chat.toString();
+      if (!messagesByChat.has(chatId)) messagesByChat.set(chatId, []);
+      messagesByChat.get(chatId).push(serializeChatMessage(message));
+    });
+    serializedChats.forEach((chat) => {
+      if (migratedChatIds.some((id) => id.toString() === chat.id)) {
+        chat.messages = messagesByChat.get(chat.id) || [];
+      }
+    });
+  }
 
   res.json({
-    chats: chats.map((chat) => serializeChat(chat, currentProfileId)),
+    chats: serializedChats,
     ...(paged ? { hasMore: chats.length === limit, page, limit } : {}),
   });
 };
@@ -1489,7 +1547,7 @@ const getChats = async (req, res) => {
 const getChat = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const chat = await Chat.findById(req.params.chatId)
-    .select('user1 user2 hiddenBy')
+    .select('user1 user2 hiddenBy messagesMigrated')
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .exec();
@@ -1521,30 +1579,29 @@ const getChat = async (req, res) => {
   }
 
   if (req.query.summary === '1') {
-    const recent = await Chat.findById(req.params.chatId)
-      .slice('messages', -51)
-      .populate({ path: 'messages.user', select: 'name avatar' })
-      .exec();
-    const serialized = serializeChat(recent, currentProfileId);
-    const hasMoreOlder = serialized.messages.length > 50;
-    serialized.messages = serialized.messages.slice(-50);
-    res.json({ chat: { ...serialized, hasMoreOlder } });
+    const recent = await getRecentChatMessages(chat);
+    res.json({ chat: serializeChatWithMessages(chat, currentProfileId, recent.messages, recent.hasMoreOlder) });
     return;
   }
 
-  const completeChat = await Chat.findById(req.params.chatId)
-    .populate({ path: 'messages.user', select: 'name avatar' })
-    .exec();
+  let completeMessages;
+  if (chat.messagesMigrated) {
+    completeMessages = await ChatMessage.find({ chat: chat._id }).sort({ _id: 1 }).populate('user', 'name avatar').exec();
+  } else {
+    const completeChat = await Chat.findById(req.params.chatId)
+      .populate({ path: 'messages.user', select: 'name avatar' }).exec();
+    completeMessages = completeChat.messages;
+  }
 
   res.json({
-    chat: serializeChat(completeChat, currentProfileId),
+    chat: serializeChatWithMessages(chat, currentProfileId, completeMessages),
   });
 };
 
 const getOlderChatMessages = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const chat = await Chat.findById(req.params.chatId)
-    .select('user1 user2 hiddenBy')
+    .select('user1 user2 hiddenBy messagesMigrated')
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .exec();
@@ -1575,6 +1632,14 @@ const getOlderChatMessages = async (req, res) => {
     return;
   }
   const limit = Math.max(1, Math.min(50, Number.parseInt(req.query.limit, 10) || 50));
+  if (chat.messagesMigrated) {
+    const rows = await ChatMessage.find({ chat: chat._id, _id: { $lt: new Types.ObjectId(before) } })
+      .sort({ _id: -1 }).limit(limit + 1).populate('user', 'name avatar').exec();
+    const hasMoreOlder = rows.length > limit;
+    const messages = rows.slice(0, limit).reverse().map(serializeChatMessage);
+    res.json({ messages, hasMoreOlder, olderCursor: messages[0]?.id || null });
+    return;
+  }
   const rows = await Chat.aggregate([
     { $match: { _id: chat._id } },
     { $unwind: '$messages' },
@@ -1624,7 +1689,13 @@ const reportChatMessage = async (req, res) => {
     return;
   }
 
-  const message = chat.messages.id(req.body?.messageId);
+  if (typeof req.body?.messageId !== 'string' || !/^[a-f\d]{24}$/i.test(req.body.messageId)) {
+    res.status(400).json({ error: 'A valid message ID is required' });
+    return;
+  }
+  const message = chat.messagesMigrated
+    ? await ChatMessage.findOne({ _id: req.body.messageId, chat: chat._id }).exec()
+    : chat.messages.id(req.body.messageId);
   if (!message) {
     res.status(404).json({ error: 'Message not found' });
     return;
@@ -1736,6 +1807,7 @@ const createChat = async (req, res) => {
       { user1: user2Id, user2: user1Id },
     ],
   })
+    .select('user1 user2 project hiddenBy messagesMigrated')
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
     .exec();
@@ -1744,7 +1816,8 @@ const createChat = async (req, res) => {
     if ((existingChat.hiddenBy || []).some((id) => id.equals(user1Id))) {
       await Chat.updateOne({ _id: existingChat._id }, { $pull: { hiddenBy: user1Id } }).exec();
     }
-    res.json({ chat: serializeChat(existingChat, user1Id.toString()) });
+    const recent = await getRecentChatMessages(existingChat);
+    res.json({ chat: serializeChatWithMessages(existingChat, user1Id.toString(), recent.messages, recent.hasMoreOlder) });
     return;
   }
 
@@ -1755,9 +1828,8 @@ const createChat = async (req, res) => {
     .populate('user2', 'name avatar')
     .exec();
 
-  res.status(201).json({
-    chat: serializeChat(populatedChat, user1Id.toString()),
-  });
+  const recent = await getRecentChatMessages(populatedChat);
+  res.status(201).json({ chat: serializeChatWithMessages(populatedChat, user1Id.toString(), recent.messages, recent.hasMoreOlder) });
 };
 
 const addChatMessage = async (req, res) => {
@@ -1790,34 +1862,38 @@ const addChatMessage = async (req, res) => {
     return;
   }
 
-  chat.messages.push({
-    user: currentProfileId,
-    message,
-    timestamp: new Date(),
-  });
+  const timestamp = new Date();
+  if (chat.messagesMigrated) {
+    await ChatMessage.create({ chat: chat._id, user: currentProfileId, message, timestamp });
+  } else {
+    chat.messages.push({ user: currentProfileId, message, timestamp });
+  }
 
   // Unhide chat for the recipient so it reappears in their inbox
   const recipientId = chat.user1?.equals(currentProfileId)
     ? chat.user2
     : chat.user1;
-  if (recipientId && chat.hiddenBy?.length) {
+  const shouldUnhideRecipient = Boolean(recipientId && chat.hiddenBy?.some((id) => id.equals(recipientId)));
+  if (shouldUnhideRecipient) {
     chat.hiddenBy = chat.hiddenBy.filter((id) => !id.equals(recipientId));
   }
 
-  await chat.save();
+  if (chat.messagesMigrated) {
+    const update = { $set: { updatedAt: timestamp } };
+    if (shouldUnhideRecipient) update.$pull = { hiddenBy: recipientId };
+    await Chat.updateOne({ _id: chat._id }, update).exec();
+  } else {
+    await chat.save();
+  }
 
   const populatedChat = await Chat.findById(chat._id)
-    .slice('messages', -50)
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
-    .populate({
-      path: 'messages.user',
-      select: 'name avatar',
-    })
     .exec();
+  const recent = await getRecentChatMessages(populatedChat);
 
   res.status(201).json({
-    chat: serializeChat(populatedChat, currentProfileId.toString()),
+    chat: serializeChatWithMessages(populatedChat, currentProfileId.toString(), recent.messages, recent.hasMoreOlder),
   });
 };
 
@@ -1844,8 +1920,7 @@ const hideChat = async (req, res) => {
   );
 
   if (!alreadyHidden) {
-    chat.hiddenBy.push(currentProfileId);
-    await chat.save();
+    await Chat.updateOne({ _id: chat._id }, { $addToSet: { hiddenBy: currentProfileId } }).exec();
   }
 
   res.json({ ok: true });
@@ -1875,7 +1950,9 @@ const editChatMessage = async (req, res) => {
     return;
   }
 
-  const msg = chat.messages.id(req.params.messageId);
+  const msg = chat.messagesMigrated
+    ? await ChatMessage.findOne({ _id: req.params.messageId, chat: chat._id }).exec()
+    : chat.messages.id(req.params.messageId);
 
   if (!msg) {
     res.status(404).json({ error: 'Message not found' });
@@ -1897,16 +1974,23 @@ const editChatMessage = async (req, res) => {
   msg.edited = true;
   msg.editedAt = new Date();
 
-  await chat.save();
+  if (chat.messagesMigrated) {
+    await msg.save();
+    await Chat.updateOne({ _id: chat._id }, { $set: { updatedAt: new Date() } }).exec();
+  } else {
+    await chat.save();
+  }
 
   const populatedChat = await Chat.findById(chat._id)
-    .slice('messages', -50)
     .populate('user1', 'name avatar')
     .populate('user2', 'name avatar')
-    .populate({ path: 'messages.user', select: 'name avatar' })
     .exec();
 
-  res.json({ chat: serializeChat(populatedChat, currentProfileId.toString()) });
+  const recent = await getRecentChatMessages(populatedChat);
+  res.json({
+    chat: serializeChatWithMessages(populatedChat, currentProfileId.toString(), recent.messages, recent.hasMoreOlder),
+    editedMessage: { id: msg._id.toString(), message: msg.message, edited: true, editedAt: msg.editedAt },
+  });
 };
 
 const healthcheck = (req, res) => {

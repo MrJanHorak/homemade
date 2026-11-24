@@ -264,11 +264,17 @@ const ChatShell = ({ chatId }) => {
 
       const payload = await response.json();
       requestVersion.current += 1;
-      setActiveChat((previous) => ({
-        ...payload.chat,
-        messages: mergeChatMessages(previous?.id === chatId ? previous.messages : [], payload.chat.messages),
-        hasMoreOlder: previous?.id === chatId ? previous.hasMoreOlder : false,
-      }));
+      setActiveChat((previous) => {
+        const merged = mergeChatMessages(previous?.id === chatId ? previous.messages : [], payload.chat.messages);
+        const messages = payload.editedMessage
+          ? merged.map((entry) => entry.id === payload.editedMessage.id ? { ...entry, ...payload.editedMessage } : entry)
+          : merged;
+        return {
+          ...payload.chat,
+          messages,
+          hasMoreOlder: previous?.id === chatId ? previous.hasMoreOlder : false,
+        };
+      });
       setMessage('');
       if (composerRef.current) {
         composerRef.current.style.height = 'auto';
